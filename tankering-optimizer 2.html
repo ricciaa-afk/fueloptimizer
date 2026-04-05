@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FuelOpt — Tankering Optimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #f0f2f5;
+  --surface:   #ffffff;
+  --surface2:  #f7f8fa;
+  --border:    #dde1e8;
+  --border2:   #c8cdd8;
+  --text:      #1a1e2a;
+  --muted:     #6b7385;
+  --label:     #3d4356;
+  --blue:      #1a6ef5;
+  --blue-lt:   #e8f0fe;
+  --green:     #0d9e6e;
+  --green-lt:  #e6f7f1;
+  --red:       #d93025;
+  --red-lt:    #fce8e6;
+  --amber:     #b45309;
+  --amber-lt:  #fef3c7;
+  --shadow:    0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.10), 0 2px 4px rgba(0,0,0,0.06);
+}
+
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+.container { max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
+
+/* Header */
+header { margin-bottom: 24px; }
+.logo { font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--blue); margin-bottom: 6px; }
+h1 { font-size: clamp(22px, 4vw, 38px); font-weight: 800; letter-spacing: -0.5px; color: var(--text); line-height: 1.1; }
+h1 em { font-style: normal; color: var(--blue); }
+
+/* Route bar */
+.route-bar { display: flex; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+.airport-input {
+  background: var(--blue-lt); border: 1.5px solid #a3c4fd; color: var(--blue);
+  font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase; text-align: center;
+  width: 72px; padding: 6px 4px; border-radius: 6px; outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.airport-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,110,245,0.15); background: #fff; }
+.airport-input::placeholder { color: #93b4fb; }
+.route-role { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); text-align: center; margin-top: 3px; }
+.route-node-wrap { display: flex; flex-direction: column; align-items: center; }
+.rarrow { color: var(--border2); font-size: 18px; margin-bottom: 14px; }
+
+/* Cards */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.card-title { font-size: 11px; font-family: 'Inter', sans-serif; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.card-title.blue  { color: var(--blue); }
+.card-title.green { color: var(--green); }
+.card-icon { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
+.card-icon.blue  { background: var(--blue-lt); }
+.card-icon.green { background: var(--green-lt); }
+
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.g2:last-child, .g3:last-child { margin-bottom: 0; }
+@media (max-width: 680px) { .g3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 460px) { .g2, .g3 { grid-template-columns: 1fr; } }
+
+.field { display: flex; flex-direction: column; }
+label { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--label); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 5px; font-weight: 500; }
+label .u { color: var(--blue); margin-left: 3px; }
+input[type="number"] {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px;
+  padding: 8px 11px; outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  -moz-appearance: textfield; width: 100%;
+}
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,110,245,0.12); background: #fff; }
+.hint { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+
+/* Fee note */
+.section-divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+/* Button */
+.btn-calc { width: 100%; background: var(--blue); color: #fff; border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 0.5px; padding: 15px; cursor: pointer; transition: all 0.2s; margin-top: 6px; box-shadow: 0 2px 8px rgba(26,110,245,0.3); }
+.btn-calc:hover { background: #1558d6; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(26,110,245,0.35); }
+.btn-calc:active { transform: none; }
+
+/* Results */
+#results { display: none; animation: slideUp 0.35s ease; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.results-head { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin: 24px 0 14px; display: flex; align-items: center; gap: 10px; }
+.results-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* Strategy banner */
+.strategy-banner { border-radius: 10px; padding: 20px 24px; margin-bottom: 14px; border: 1px solid; box-shadow: var(--shadow-md); }
+.strategy-banner.positive { background: linear-gradient(135deg, #e6f7f1, #e8f0fe); border-color: #a7d7c5; }
+.strategy-banner.neutral  { background: linear-gradient(135deg, #fef3c7, #fef9ee); border-color: #fcd34d; }
+.strategy-banner.negative { background: linear-gradient(135deg, #fce8e6, #fff5f5); border-color: #f5a9a3; }
+.sb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+.sb-label { font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.sb-value { font-size: 38px; font-weight: 800; line-height: 1; }
+.sb-value.green { color: var(--green); }
+.sb-value.amber { color: var(--amber); }
+.sb-value.red   { color: var(--red); }
+.sb-note { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-top: 4px; }
+.sb-stats { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+.ss-label { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+.ss-val { font-family: 'Inter', sans-serif; font-size: 16px; font-weight: 700; color: var(--text); }
+.ss-val.green { color: var(--green); }
+.ss-val.blue  { color: var(--blue); }
+.ss-val.red   { color: var(--red); }
+.sb-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 5px; font-family: 'Inter', sans-serif; font-size: 11px; margin-top: 8px; font-weight: 600; }
+.sb-badge.go { background: var(--green-lt); border: 1px solid #6dcfae; color: var(--green); }
+.sb-badge.no { background: var(--red-lt);   border: 1px solid #f5a9a3; color: var(--red); }
+.sb-badge.eq { background: var(--amber-lt); border: 1px solid #fcd34d; color: var(--amber); }
+.strategy-box { border-radius: 7px; padding: 14px 16px; border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.7); }
+.strat-label  { font-family: 'Inter', sans-serif; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.strat-text   { font-size: 14px; font-weight: 600; color: var(--text); line-height: 1.5; }
+.strat-detail { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+
+/* Compare cards */
+.cmp-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 620px) { .cmp-wrap { grid-template-columns: 1fr; } }
+.cmp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+.cmp-card.opt { border-color: #a3c4fd; }
+.cmp-head { padding: 10px 16px; font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.cmp-card:not(.opt) .cmp-head { background: var(--surface2); color: var(--muted); }
+.cmp-card.opt       .cmp-head { background: var(--blue-lt);  color: var(--blue); }
+.cmp-section { padding: 11px 16px; border-bottom: 1px solid var(--border); }
+.cmp-section:last-child { border-bottom: none; }
+.cs-label { font-family: 'Inter', sans-serif; font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+.row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; border-bottom: 1px solid #f0f2f5; gap: 10px; }
+.row:last-child { border-bottom: none; }
+.row .rk { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.row .rv { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text); text-align: right; }
+.row .rv.blue  { color: var(--blue);  font-weight: 600; }
+.row .rv.green { color: var(--green); font-weight: 600; }
+.row .rv.red   { color: var(--red); }
+.row .rv.muted { color: var(--muted); }
+.cmp-total { display: flex; justify-content: space-between; align-items: center; padding: 11px 16px; border-top: 2px solid var(--border); }
+.cmp-card:not(.opt) .cmp-total { background: var(--surface2); }
+.cmp-card.opt       .cmp-total { background: var(--blue-lt); }
+.cmp-total .tk { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.cmp-total .tv { font-family: 'Inter', sans-serif; font-size: 17px; font-weight: 700; }
+.cmp-card:not(.opt) .cmp-total .tv { color: var(--text); }
+.cmp-card.opt       .cmp-total .tv { color: var(--blue); }
+
+.alert-box { background: var(--red-lt); border: 1px solid #f5a9a3; border-radius: 6px; padding: 12px 16px; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--red); margin-bottom: 12px; }
+.btn-copy { width: 100%; background: var(--surface); color: var(--blue); border: 1.5px solid var(--blue); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 12px; cursor: pointer; margin-top: 8px; transition: all 0.2s; }
+.btn-copy:hover { background: var(--blue-lt); }
+.adj-btn { width: 100%; background: none; border: 1px dashed var(--blue); border-radius: 6px; color: var(--blue); font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; padding: 7px; cursor: pointer; margin-top: 8px; transition: all 0.2s; letter-spacing: 0.3px; }
+.adj-btn:hover { background: var(--blue-lt); }
+.adj-panel { display: none; margin-top: 10px; background: var(--blue-lt); border: 1px solid #a3c4fd; border-radius: 8px; padding: 12px 14px; }
+.adj-panel.open { display: block; }
+.adj-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+.adj-label { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--label); letter-spacing: 0.8px; text-transform: uppercase; font-weight: 500; flex-shrink: 0; }
+.adj-input { background: #fff; border: 1px solid #a3c4fd; border-radius: 5px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 14px; padding: 6px 10px; width: 110px; outline: none; -moz-appearance: textfield; }
+.adj-input::-webkit-outer-spin-button, .adj-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.adj-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,110,245,0.12); }
+.adj-unit { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); }
+.adj-calc-btn { background: var(--blue); color: #fff; border: none; border-radius: 5px; font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; padding: 7px 14px; cursor: pointer; }
+.adj-calc-btn:hover { background: #1558d6; }
+.adj-result { background: #fff; border: 1px solid #a3c4fd; border-radius: 6px; padding: 10px 12px; }
+.adj-result-row { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; border-bottom: 1px solid #e8f0fe; }
+.adj-result-row:last-child { border-bottom: none; }
+.adj-rk { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); }
+.adj-rv { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--blue); }
+.adj-rv.green { color: var(--green); }
+.adj-rv.red { color: var(--red); }
+.adj-note { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--muted); margin-top: 8px; line-height: 1.4; font-style: italic; }
+.btn-instr { background: none; border: 1.5px solid var(--border2); border-radius: 6px; color: var(--muted); font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; padding: 6px 14px; cursor: pointer; transition: all 0.2s; }
+.btn-instr:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-lt); }
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: center; justify-content: center; }
+.modal-overlay.open { display: flex; }
+.modal-box { background: #fff; border-radius: 12px; padding: 28px 32px; max-width: 520px; width: 90%; box-shadow: 0 8px 32px rgba(0,0,0,0.18); position: relative; }
+.modal-title { font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 18px; }
+.modal-steps { list-style: none; padding: 0; margin: 0 0 16px 0; }
+.modal-steps li { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); line-height: 1.6; padding: 8px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px; }
+.modal-steps li:last-child { border-bottom: none; }
+.modal-step-num { font-weight: 700; color: var(--blue); flex-shrink: 0; width: 18px; }
+.modal-note { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--border); padding-top: 12px; }
+.modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 18px; color: var(--muted); cursor: pointer; line-height: 1; }
+.modal-close:hover { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <h1>Tankering <em>Optimizer</em></h1>
+  <div class="route-bar">
+    <div class="route-node-wrap">
+      <input class="airport-input" id="apt-a" maxlength="4" oninput="updateLabels()">
+      <div class="route-role">Tanker Leg</div>
+    </div>
+    <span class="rarrow">&#9658;</span>
+    <div class="route-node-wrap">
+      <input class="airport-input" id="apt-b" maxlength="4" oninput="updateLabels()">
+      <div class="route-role">Burn Leg</div>
+    </div>
+    <span class="rarrow">&#9658;</span>
+    <div class="route-node-wrap">
+      <input class="airport-input" id="apt-c" maxlength="4" oninput="updateLabels()">
+      <div class="route-role">Final Stop</div>
+    </div>
+  </div>
+  <button class="btn-instr" onclick="document.getElementById('instr-modal').classList.add('open')" style="margin-top:12px;">&#9432; Instructions</button>
+</header>
+
+<div class="modal-overlay" id="instr-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal-box">
+    <button class="modal-close" onclick="document.getElementById('instr-modal').classList.remove('open')">&times;</button>
+    <div class="modal-title">How to Use Fuel Optimizer</div>
+    <ol class="modal-steps">
+      <li><span class="modal-step-num">1</span><span>Plan both legs assuming no tankering — fuel load for each leg is only what you need for that leg.</span></li>
+      <li><span class="modal-step-num">2</span><span>Enter those fuel requirements along with fuel prices for both locations, and fees and waiver amounts for stop B.</span></li>
+      <li><span class="modal-step-num">3</span><span>Press Calculate — the output will be an optimized fueling strategy for your trip.</span></li>
+      <li><span class="modal-step-num">4</span><span>Adjust your tanker leg fuel load based on the strategy and update your plan in ForeFlight.</span></li>
+    </ol>
+    <div class="modal-note">The model applies an estimated weight penalty of 0.005 gal/hr/lb of extra fuel carried. This is a reasonable approximation for making smart tankering decisions across most aircraft types.</div>
+  </div>
+</div>
+
+<!-- STOP A -->
+<div class="card">
+  <div class="card-title blue">
+    <span class="card-icon blue">A</span>
+    <span id="lbl-stop-a">A &#8212; B, Tanker Leg</span>
+  </div>
+
+  <div class="g3">
+    <div class="field">
+      <label>Fuel Price <span class="u">$/gal</span></label>
+      <input type="number" id="priceA" step="0.01">
+    </div>
+    <div class="field">
+      <label>Fuel on Board <span class="u">lbs</span></label>
+      <input type="number" id="fuelOnBoard" step="10">
+      <div class="hint">Already on board before uplifting at <span class="dyn-a">A</span></div>
+    </div>
+    <div class="field">
+      <label>Taxi &amp; Enroute Burn <span class="u">lbs</span></label>
+      <input type="number" id="burnAB" step="10">
+      <div class="hint">Planned burn <span class="dyn-a">A</span> to <span class="dyn-b">B</span>, no tankering</div>
+    </div>
+  </div>
+
+  <div class="g3">
+    <div class="field">
+      <label>Reserve Fuel at <span id="lbl-res-b">B</span> <span class="u">lbs</span></label>
+      <input type="number" id="minFuelB" step="10">
+      <div class="hint" id="hint-res-b">Planned landing fuel at <span class="dyn-b">B</span> (reserve plus alternate fuel)</div>
+    </div>
+    <div class="field">
+      <label>ETE <span class="u">hrs</span></label>
+      <input type="number" id="eteAB" step="0.1">
+      <div class="hint">Enroute time <span class="dyn-a">A</span> to <span class="dyn-b">B</span></div>
+    </div>
+    <div class="field">
+      <label>Max Additional Fuel <span class="u">lbs</span></label>
+      <input type="number" id="maxPracticalFuel" step="100">
+      <div class="hint">Extra fuel you can carry beyond your planned fuel load (from W&amp;B payload margin)</div>
+    </div>
+  </div>
+</div>
+
+<!-- STOP B -->
+<div class="card">
+  <div class="card-title green">
+    <span class="card-icon green">B</span>
+    <span id="lbl-stop-b">B &#8212; C, Burn Leg</span>
+  </div>
+
+  <div class="g3">
+    <div class="field">
+      <label>Fuel Price <span class="u">$/gal</span></label>
+      <input type="number" id="priceB" step="0.01">
+    </div>
+    <div class="field">
+      <label>Fee if Below Waiver <span class="u">$</span></label>
+      <input type="number" id="feeB" step="1">
+    </div>
+    <div class="field">
+      <label>Waiver Threshold <span class="u">gal</span></label>
+      <input type="number" id="waiverB" step="1">
+      <div class="hint">0 = no waiver program</div>
+    </div>
+  </div>
+
+  <div class="section-divider"></div>
+
+  <div class="g3">
+    <div class="field">
+      <label>Taxi &amp; APU at <span id="lbl-taxi-b">B</span> <span class="u">lbs</span></label>
+      <input type="number" id="taxiB" step="10">
+      <div class="hint">Fuel used after landing, before fueling</div>
+    </div>
+    <div class="field">
+      <label>Taxi &amp; Enroute Burn <span class="u">lbs</span></label>
+      <input type="number" id="burnBC" step="10">
+      <div class="hint">Planned burn <span class="dyn-b">B</span> to <span class="dyn-c">C</span></div>
+    </div>
+    <div class="field">
+      <label>Reserve Fuel at <span id="lbl-res-c">C</span> <span class="u">lbs</span></label>
+      <input type="number" id="minFuelC" step="10">
+      <div class="hint" id="hint-res-c">Planned landing fuel at <span class="dyn-c">C</span> (reserve plus alternate fuel)</div>
+    </div>
+  </div>
+</div>
+
+<button class="btn-calc" onclick="optimize()">&#8635; CALCULATE OPTIMUM FUEL PLAN</button>
+
+<!-- RESULTS -->
+<div id="results">
+  <div id="alert-box" style="display:none" class="alert-box"></div>
+  <div class="results-head">Analysis Results</div>
+
+  <div class="strategy-banner" id="strategy-banner">
+    <div class="sb-top">
+      <div>
+        <div class="sb-label">Optimized vs Baseline Savings</div>
+        <div class="sb-value" id="r-savings">-</div>
+        <div class="sb-note"  id="r-savings-note">-</div>
+        <div id="r-badge"></div>
+      </div>
+      <div class="sb-stats">
+        <div><div class="ss-label">Baseline Total</div><div class="ss-val" id="r-base-tot">-</div></div>
+        <div><div class="ss-label">Optimized Total</div><div class="ss-val green" id="r-opt-tot">-</div></div>
+        <div><div class="ss-label">Extra Tanker Fuel</div><div class="ss-val blue" id="r-tanker-amt">-</div></div>
+        <div><div class="ss-label">Fee at <span class="dyn-b">B</span></div><div class="ss-val" id="r-fee-b-hero">-</div></div>
+        <div id="r-bk-arb-wrap" style="display:none"><div class="ss-label">Tanker Threshold</div><div class="ss-val amber" id="r-bk-arb-val">-</div><div style="font-family:'Inter',sans-serif;font-size:9px;color:var(--muted);margin-top:2px;" id="r-bk-arb-note"></div></div>
+        <div id="r-bk-waiver-wrap" style="display:none"><div class="ss-label">Waiver Threshold</div><div class="ss-val amber" id="r-bk-waiver-val">-</div><div style="font-family:'Inter',sans-serif;font-size:9px;color:var(--muted);margin-top:2px;" id="r-bk-waiver-note"></div></div>
+      </div>
+    </div>
+    <div class="strategy-box">
+      <div class="strat-label">Recommended Strategy</div>
+      <div class="strat-text"   id="strat-text">-</div>
+      <div class="strat-detail" id="strat-detail">-</div>
+    </div>
+    <div class="strategy-box alt-plan-box" id="alt-plan-box" style="display:none; margin-top:10px; border-left: 3px solid var(--amber); background: var(--amber-lt);">
+      <div class="strat-label" style="color:var(--amber);">If Weight Limits Prevent Extra Fuel at B</div>
+      <div class="strat-text"  id="alt-strat-text" style="color:var(--amber);">-</div>
+      <div class="strat-detail" id="alt-strat-detail">-</div>
+    </div>
+    <div class="strategy-box" id="zone-box" style="display:none; margin-top:10px;">
+      <div class="strat-label">Price Decision Zones at <span class="dyn-b">B</span></div>
+      <div id="zone-text" style="font-family:'Inter',sans-serif;font-size:11px;color:var(--muted);line-height:1.7;"></div>
+    </div>
+  </div>
+
+  <!-- Side by side -->
+  <div class="cmp-wrap">
+
+    <div class="cmp-card">
+      <div class="cmp-head">// Baseline &#8212; Minimum Purchase, No Tankering</div>
+      <div class="cmp-section">
+        <div class="cs-label" id="b-hdr-a">A &#8212; Tanker Leg</div>
+        <div class="row"><span class="rk">Fuel on board</span><span class="rv" id="b-fob">-</span></div>
+        <div class="row"><span class="rk">Purchase at <span class="dyn-a">A</span></span><span class="rv" id="b-buyA">-</span></div>
+        <div class="row"><span class="rk">Depart <span class="dyn-a">A</span> with</span><span class="rv" id="b-departA">-</span></div>
+        <div class="row"><span class="rk">Fuel cost at <span class="dyn-a">A</span></span><span class="rv" id="b-costA">-</span></div>
+      </div>
+      <div class="cmp-section">
+        <div class="cs-label">Leg <span class="dyn-a">A</span> to <span class="dyn-b">B</span></div>
+        <div class="row"><span class="rk">Taxi &amp; enroute burn</span><span class="rv" id="b-burnAB">-</span></div>
+        <div class="row"><span class="rk">Land at <span class="dyn-b">B</span> with</span><span class="rv" id="b-landB">-</span></div>
+      </div>
+      <div class="cmp-section">
+        <div class="cs-label" id="b-hdr-b">B &#8212; Fuel Stop</div>
+        <div class="row"><span class="rk">Taxi &amp; APU burn</span><span class="rv" id="b-taxiB">-</span></div>
+        <div class="row"><span class="rk">Pre-fuel on board</span><span class="rv" id="b-prefuel">-</span></div>
+        <div class="row"><span class="rk">Purchase at <span class="dyn-b">B</span></span><span class="rv" id="b-buyB">-</span></div>
+        <div class="row"><span class="rk">Fee at <span class="dyn-b">B</span></span><span class="rv" id="b-feeB">-</span></div>
+        <div class="row"><span class="rk">Depart <span class="dyn-b">B</span> with</span><span class="rv" id="b-departB">-</span></div>
+        <div class="row"><span class="rk">Fuel cost at <span class="dyn-b">B</span></span><span class="rv" id="b-costB">-</span></div>
+      </div>
+      <div class="cmp-section">
+        <div class="cs-label">Leg <span class="dyn-b">B</span> to <span class="dyn-c">C</span></div>
+        <div class="row"><span class="rk">Taxi &amp; enroute burn</span><span class="rv" id="b-burnBC">-</span></div>
+        <div class="row"><span class="rk">Land at <span class="dyn-c">C</span> with</span><span class="rv" id="b-landC">-</span></div>
+      </div>
+      <div class="cmp-total">
+        <span class="tk">Total Fuel + Fee Cost</span>
+        <span class="tv" id="b-total">-</span>
+      </div>
+    </div>
+
+    <div class="cmp-card opt">
+      <div class="cmp-head">// Optimized &#8212; Best Tankering Plan</div>
+      <div class="cmp-section">
+        <div class="cs-label" id="o-hdr-a">A &#8212; Tanker Leg</div>
+        <div class="row"><span class="rk">Fuel on board</span><span class="rv" id="o-fob">-</span></div>
+        <div class="row"><span class="rk">Purchase at <span class="dyn-a">A</span></span><span class="rv blue" id="o-buyA">-</span></div>
+        <div class="row"><span class="rk">Extra tanker fuel</span><span class="rv blue" id="o-extra">-</span></div>
+        <div class="row"><span class="rk">Depart <span class="dyn-a">A</span> with</span><span class="rv blue" id="o-departA">-</span></div>
+        <div class="row"><span class="rk">Fuel cost at <span class="dyn-a">A</span></span><span class="rv" id="o-costA">-</span></div>
+      </div>
+      <div class="cmp-section">
+        <div class="cs-label">Leg <span class="dyn-a">A</span> to <span class="dyn-b">B</span></div>
+        <div class="row"><span class="rk">Taxi &amp; enroute burn</span><span class="rv" id="o-burnAB">-</span></div>
+        <div class="row"><span class="rk">Tankering penalty burn</span><span class="rv red" id="o-penalty">-</span></div>
+        <div class="row"><span class="rk">Land at <span class="dyn-b">B</span> with</span><span class="rv" id="o-landB">-</span></div>
+      </div>
+      <div class="cmp-section">
+        <div class="cs-label" id="o-hdr-b">B &#8212; Fuel Stop</div>
+        <div class="row"><span class="rk">Taxi &amp; APU burn</span><span class="rv" id="o-taxiB">-</span></div>
+        <div class="row"><span class="rk">Pre-fuel on board</span><span class="rv" id="o-prefuel">-</span></div>
+        <button class="adj-btn" id="adj-btn" style="display:none" onclick="toggleAdjPanel()">&#9998; Adjust for Actual Shutdown Fuel at <span class="dyn-b">B</span></button>
+        <div class="adj-panel" id="adj-panel">
+          <div class="adj-row">
+            <span class="adj-label">Actual shutdown fuel</span>
+            <input type="number" class="adj-input" id="adj-input" step="10" placeholder="lbs">
+            <span class="adj-unit">lbs</span>
+            <button class="adj-calc-btn" onclick="calcAdjusted()">Update</button>
+          </div>
+          <div id="adj-result" style="display:none">
+            <div class="adj-result">
+              <div class="adj-result-row"><span class="adj-rk">Order at <span class="dyn-b">B</span></span><span class="adj-rv" id="adj-buy">-</span></div>
+              <div class="adj-result-row"><span class="adj-rk">Fee at <span class="dyn-b">B</span></span><span class="adj-rv" id="adj-fee">-</span></div>
+              <div class="adj-result-row"><span class="adj-rk">Depart <span class="dyn-b">B</span> with</span><span class="adj-rv green" id="adj-depart">-</span></div>
+              <div class="adj-result-row"><span class="adj-rk">Updated total cost</span><span class="adj-rv" id="adj-total">-</span></div>
+              <div class="adj-result-row"><span class="adj-rk">Savings vs baseline</span><span class="adj-rv" id="adj-savings">-</span></div>
+            </div>
+            <div class="adj-note" id="adj-note"></div>
+          </div>
+        </div>
+        <div class="row"><span class="rk">Purchase at <span class="dyn-b">B</span></span><span class="rv blue" id="o-buyB">-</span></div>
+        <div class="row"><span class="rk">Fee at <span class="dyn-b">B</span></span><span class="rv" id="o-feeB">-</span></div>
+        <div class="row"><span class="rk">Depart <span class="dyn-b">B</span> with</span><span class="rv" id="o-departB">-</span></div>
+        <div class="row"><span class="rk">Fuel cost at <span class="dyn-b">B</span></span><span class="rv" id="o-costB">-</span></div>
+      </div>
+      <div class="cmp-section">
+        <div class="cs-label">Leg <span class="dyn-b">B</span> to <span class="dyn-c">C</span></div>
+        <div class="row"><span class="rk">Taxi &amp; enroute burn</span><span class="rv" id="o-burnBC">-</span></div>
+        <div class="row"><span class="rk">Land at <span class="dyn-c">C</span> with</span><span class="rv" id="o-landC">-</span></div>
+      </div>
+      <div class="cmp-total">
+        <span class="tk">Total Fuel + Fee Cost</span>
+        <span class="tv" id="o-total">-</span>
+      </div>
+    </div>
+
+  </div>
+
+  <button class="btn-copy" onclick="copyResults()" id="btn-copy">&#128203; COPY RESULTS FOR REVIEW</button>
+  <div id="copy-confirm" style="display:none;font-family:'Inter',sans-serif;font-size:11px;color:#0d9e6e;text-align:center;margin-top:6px;">&#10004; Copied to clipboard</div>
+
+</div>
+
+</div>
+<script>
+// ── Global error handler ─────────────────────────────────────────────────────
+window.onerror = function(msg, src, line) {
+  var el = document.getElementById('alert-box');
+  if (el) { el.textContent = 'JS Error: ' + msg + ' (line ' + line + ')'; el.style.display = 'block'; }
+  var r = document.getElementById('results');
+  if (r) r.style.display = 'block';
+  return false;
+};
+
+// ── Constants (hardcoded, not exposed to user) ────────────────────────────────
+var DENSITY      = 6.75;  // lbs/gal
+var PENALTY_RATE = 0.005; // gal / hr / lb of extra fuel tankered
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function lbsToGal(lbs) { return lbs / DENSITY; }
+function galToLbs(gal) { return gal * DENSITY; }
+function fmtDollar(v)       { return '$' + Math.round(v).toLocaleString(); }
+function fmtLbs(lbs)   { return Math.round(lbs).toLocaleString() + ' lbs  (' + Math.round(lbsToGal(lbs)).toLocaleString() + ' gal)'; }
+function fmtBuy(lbs)   { return Math.round(lbsToGal(lbs)).toLocaleString() + ' gal  /  ' + Math.round(lbs).toLocaleString() + ' lbs'; }
+
+function aptA() { return document.getElementById('apt-a').value.trim().toUpperCase() || 'A'; }
+function aptB() { return document.getElementById('apt-b').value.trim().toUpperCase() || 'B'; }
+function aptC() { return document.getElementById('apt-c').value.trim().toUpperCase() || 'C'; }
+
+function gv(id)  { return parseFloat(document.getElementById(id).value) || 0; }
+function gvn(id) { var v = document.getElementById(id).value; return v === '' ? null : parseFloat(v); }
+
+function setEl(id, txt, cls) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = txt;
+  if (cls !== undefined) el.className = 'rv ' + cls;
+}
+
+// ── Copy results ──────────────────────────────────────────────────────────────
+function copyResults() {
+  var a = aptA(), b = aptB(), c = aptC();
+  function tv(id) { var el = document.getElementById(id); return el ? el.textContent.trim() : '-'; }
+  function gvt(id) { var el = document.getElementById(id); return el ? (el.value || '-') : '-'; }
+
+  var lines = [
+    '=== FUELOPT ANALYSIS RESULTS ===',
+    'Route: ' + a + ' -> ' + b + ' -> ' + c,
+    '',
+    '--- INPUTS ---',
+    a + ' Fuel Price:          $' + gvt('priceA') + '/gal',
+    a + ' Fuel on Board:       ' + gvt('fuelOnBoard') + ' lbs',
+    a + ' Taxi & Burn to ' + b + ':  ' + gvt('burnAB') + ' lbs',
+    a + ' Reserve at ' + b + ':      ' + gvt('minFuelB') + ' lbs',
+    a + ' ETE:                 ' + gvt('eteAB') + ' hrs',
+    a + ' Max Additional Fuel: ' + gvt('maxPracticalFuel') + ' lbs',
+    '',
+    b + ' Fuel Price:          $' + gvt('priceB') + '/gal',
+    b + ' Fee:                 $' + gvt('feeB'),
+    b + ' Waiver Threshold:    ' + gvt('waiverB') + ' gal',
+    b + ' Taxi & APU:          ' + gvt('taxiB') + ' lbs',
+    b + ' Taxi & Burn to ' + c + ':  ' + gvt('burnBC') + ' lbs',
+    b + ' Reserve at ' + c + ':      ' + gvt('minFuelC') + ' lbs',
+    '',
+    '--- STRATEGY ---',
+    tv('strat-text'),
+    tv('strat-detail'),
+    '',
+    '--- SUMMARY ---',
+    'Baseline Total:   ' + tv('r-base-tot'),
+    'Optimized Total:  ' + tv('r-opt-tot'),
+    'Savings:          ' + tv('r-savings'),
+    'Extra Tankered:   ' + tv('r-tanker-amt'),
+    'Fee at ' + b + ':       ' + tv('r-fee-b-hero'),
+    'Tanker Threshold:  ' + tv('r-bk-arb-val') + (tv('r-bk-arb-note') ? ' (' + tv('r-bk-arb-note') + ')' : ''),
+    'Waiver Threshold:  ' + tv('r-bk-waiver-val') + (tv('r-bk-waiver-note') ? ' (' + tv('r-bk-waiver-note') + ')' : ''),
+    '',
+    '--- BASELINE PLAN ---',
+    'Fuel on Board:    ' + tv('b-fob'),
+    'Purchase at ' + a + ':  ' + tv('b-buyA'),
+    'Depart ' + a + ' with:  ' + tv('b-departA'),
+    'Cost at ' + a + ':      ' + tv('b-costA'),
+    'Burn ' + a + '->' + b + ':       ' + tv('b-burnAB'),
+    'Land at ' + b + ':      ' + tv('b-landB'),
+    'Taxi/APU at ' + b + ':  ' + tv('b-taxiB'),
+    'Pre-fuel at ' + b + ':  ' + tv('b-prefuel'),
+    'Purchase at ' + b + ':  ' + tv('b-buyB'),
+    'Fee at ' + b + ':       ' + tv('b-feeB'),
+    'Depart ' + b + ' with:  ' + tv('b-departB'),
+    'Cost at ' + b + ':      ' + tv('b-costB'),
+    'Burn ' + b + '->' + c + ':       ' + tv('b-burnBC'),
+    'Land at ' + c + ':      ' + tv('b-landC'),
+    'TOTAL:            ' + tv('b-total'),
+    '',
+    '--- OPTIMIZED PLAN ---',
+    'Fuel on Board:    ' + tv('o-fob'),
+    'Purchase at ' + a + ':  ' + tv('o-buyA'),
+    'Extra Tanker:     ' + tv('o-extra'),
+    'Depart ' + a + ' with:  ' + tv('o-departA'),
+    'Cost at ' + a + ':      ' + tv('o-costA'),
+    'Burn ' + a + '->' + b + ':       ' + tv('o-burnAB'),
+    'Penalty Burn:     ' + tv('o-penalty'),
+    'Land at ' + b + ':      ' + tv('o-landB'),
+    'Taxi/APU at ' + b + ':  ' + tv('o-taxiB'),
+    'Pre-fuel at ' + b + ':  ' + tv('o-prefuel'),
+    'Purchase at ' + b + ':  ' + tv('o-buyB'),
+    'Fee at ' + b + ':       ' + tv('o-feeB'),
+    'Depart ' + b + ' with:  ' + tv('o-departB'),
+    'Cost at ' + b + ':      ' + tv('o-costB'),
+    'Burn ' + b + '->' + c + ':       ' + tv('o-burnBC'),
+    'Land at ' + c + ':      ' + tv('o-landC'),
+    'TOTAL:            ' + tv('o-total'),
+    '',
+    '(Penalty rate: 0.005 gal/hr/lb x 6.75 lbs/gal density)',
+  ];
+
+  var text = lines.join('\n');
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      document.getElementById('copy-confirm').style.display = 'block';
+      setTimeout(function() { document.getElementById('copy-confirm').style.display = 'none'; }, 3000);
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    document.getElementById('copy-confirm').style.display = 'block';
+    setTimeout(function() { document.getElementById('copy-confirm').style.display = 'none'; }, 3000);
+  }
+}
+
+// ── Label propagation ─────────────────────────────────────────────────────────
+// ── Adjust panel (post-landing fuel order recalculator) ───────────────────────
+var adjCurrentP   = null;
+var adjCurrentOpt  = null;
+var adjCurrentBase = null;
+
+function toggleAdjPanel() {
+  var panel = document.getElementById('adj-panel');
+  panel.classList.toggle('open');
+  if (!panel.classList.contains('open')) {
+    document.getElementById('adj-result').style.display = 'none';
+    document.getElementById('adj-input').value = '';
+  }
+}
+
+function calcAdjusted() {
+  if (!adjCurrentP || !adjCurrentOpt) return;
+  var p   = adjCurrentP;
+  var opt = adjCurrentOpt;
+
+  var actualShutdown = parseFloat(document.getElementById('adj-input').value);
+  if (isNaN(actualShutdown) || actualShutdown < 0) {
+    document.getElementById('adj-note').textContent = 'Please enter a valid fuel amount.';
+    document.getElementById('adj-result').style.display = 'block';
+    document.getElementById('adj-buy').textContent  = '-';
+    document.getElementById('adj-fee').textContent  = '-';
+    document.getElementById('adj-depart').textContent = '-';
+    return;
+  }
+
+  var minNeedLbs  = Math.max(0, p.burnBC + p.minFuelC - actualShutdown);
+  var minNeedGal  = lbsToGal(minNeedLbs);
+
+  var buyLbs, fee, note;
+  var hasWaiver = p.waiverB > 0 && p.feeB > 0;
+
+  if (!hasWaiver) {
+    buyLbs = minNeedLbs;
+    fee    = 0;
+    note   = '';
+  } else {
+    var waiverLbs  = galToLbs(p.waiverB);
+    var belowWaiver = minNeedGal < p.waiverB;
+
+    if (!belowWaiver) {
+      buyLbs = minNeedLbs;
+      fee    = 0;
+      note   = 'Minimum purchase clears the waiver threshold — no fee due.';
+    } else {
+      var costMin    = minNeedGal * p.priceB + p.feeB;
+      var costWaiver = p.waiverB * p.priceB;
+      if (costWaiver <= costMin) {
+        buyLbs = Math.max(minNeedLbs, waiverLbs);
+        fee    = 0;
+        note   = 'Buying to the ' + p.waiverB + '-gal waiver threshold saves more than paying the fee.';
+      } else {
+        buyLbs = minNeedLbs;
+        fee    = p.feeB;
+        note   = 'Paying the ' + fmtDollar(p.feeB) + ' fee is cheaper than buying up to the ' + p.waiverB + '-gal waiver threshold.';
+      }
+    }
+  }
+
+  var buyGal    = lbsToGal(buyLbs);
+  var departLbs = actualShutdown + buyLbs;
+
+  document.getElementById('adj-buy').textContent    = Math.round(buyGal) + ' gal  /  ' + Math.round(buyLbs).toLocaleString() + ' lbs';
+  document.getElementById('adj-fee').textContent    = fee > 0 ? fmtDollar(fee) + ' \u26A0' : (hasWaiver ? 'WAIVED \u2713' : 'N/A');
+  document.getElementById('adj-fee').className      = 'adj-rv ' + (fee > 0 ? 'red' : 'green');
+  document.getElementById('adj-depart').textContent = Math.round(departLbs).toLocaleString() + ' lbs  (' + Math.round(lbsToGal(departLbs)) + ' gal)';
+  document.getElementById('adj-note').textContent   = note;
+
+  var adjCostB    = Math.round(buyGal) * adjCurrentP.priceB + fee;
+  var adjCostA    = Math.round(adjCurrentOpt.costA);
+  var adjTotal    = adjCostA + adjCostB;
+  var baseTotalDisplayed = parseInt(document.getElementById('r-base-tot').textContent.replace(/[^0-9]/g, ''), 10);
+  var adjSavings  = baseTotalDisplayed - adjTotal;
+  var savingsEl   = document.getElementById('adj-savings');
+  document.getElementById('adj-total').textContent  = fmtDollar(adjTotal);
+  savingsEl.textContent = fmtDollar(Math.abs(adjSavings));
+  savingsEl.className   = 'adj-rv ' + (adjSavings > 50 ? 'green' : adjSavings < -50 ? 'red' : '');
+
+  document.getElementById('adj-result').style.display = 'block';
+}
+
+function updateLabels() {
+  var a = aptA(), b = aptB(), c = aptC();
+  function s(x) { return x.replace(/[<>&"]/g, ''); }
+  document.getElementById('lbl-stop-a').textContent = s(a) + ' \u2014 ' + s(b) + ', Tanker Leg';
+  document.getElementById('lbl-stop-b').textContent = s(b) + ' \u2014 ' + s(c) + ', Burn Leg';
+  document.getElementById('lbl-res-b').textContent  = s(b);
+  document.getElementById('lbl-res-c').textContent  = s(c);
+  document.getElementById('lbl-taxi-b').textContent = s(b);
+  document.querySelectorAll('.dyn-a').forEach(function(el) { el.textContent = s(a); });
+  document.querySelectorAll('.dyn-b').forEach(function(el) { el.textContent = s(b); });
+  document.querySelectorAll('.dyn-c').forEach(function(el) { el.textContent = s(c); });
+  var hdrs = [
+    ['b-hdr-a', s(a) + ' \u2014 Tanker Leg'], ['b-hdr-b', s(b) + ' \u2014 Fuel Stop'],
+    ['o-hdr-a', s(a) + ' \u2014 Tanker Leg'], ['o-hdr-b', s(b) + ' \u2014 Fuel Stop']
+  ];
+  hdrs.forEach(function(h) { var el = document.getElementById(h[0]); if (el) el.textContent = h[1]; });
+}
+
+// ── Fee logic ─────────────────────────────────────────────────────────────────
+function cheapestPurchase(minBuyLbs, pricePerGal, flatFee, waiverGal, maxUpliftLbs) {
+  var waiverLbs = galToLbs(waiverGal);
+
+  if (waiverGal === 0 || flatFee === 0) {
+    var buy = (maxUpliftLbs !== null) ? Math.min(minBuyLbs, maxUpliftLbs) : minBuyLbs;
+    return { buyLbs: buy, fee: 0, totalCost: lbsToGal(buy) * pricePerGal };
+  }
+
+  var o1lbs  = (maxUpliftLbs !== null) ? Math.min(minBuyLbs, maxUpliftLbs) : minBuyLbs;
+  var o1fee  = lbsToGal(o1lbs) < waiverGal ? flatFee : 0;
+  var o1cost = lbsToGal(o1lbs) * pricePerGal + o1fee;
+
+  var o2lbs  = Math.max(minBuyLbs, waiverLbs);
+  if (maxUpliftLbs !== null) o2lbs = Math.min(o2lbs, maxUpliftLbs);
+  var o2cost = lbsToGal(o2lbs) * pricePerGal;
+
+  if (o2cost <= o1cost) {
+    return { buyLbs: o2lbs, fee: 0, totalCost: o2cost };
+  } else {
+    return { buyLbs: o1lbs, fee: o1fee, totalCost: o1cost };
+  }
+}
+
+// ── True baseline (no optimization — buy minimum at B, pay whatever fee results) ──
+function buildBaseline(p) {
+  var departA = p.burnAB + p.minFuelB;
+  if (departA > p.maxPracticalFuel) return null;
+
+  var buyA_lbs    = Math.max(0, departA - p.fuelOnBoardLbs);
+  var actualDepartA = p.fuelOnBoardLbs + buyA_lbs;
+  if (actualDepartA > p.maxPracticalFuel) return null;
+
+  var burnAB_act  = p.burnAB;
+  var actualLandB = actualDepartA - burnAB_act;
+  if (actualLandB < p.minFuelB) return null;
+
+  var preFuelB    = actualLandB - p.taxiB;
+  if (preFuelB < 0) return null;
+
+  var departB_need = p.burnBC + p.minFuelC;
+  var minBuyB      = Math.max(0, departB_need - preFuelB);
+  var buyB_lbs     = minBuyB;
+  var feeB_paid    = (p.waiverB > 0 && p.feeB > 0 && lbsToGal(buyB_lbs) < p.waiverB) ? p.feeB : 0;
+  var costB        = lbsToGal(buyB_lbs) * p.priceB + feeB_paid;
+
+  var costA        = lbsToGal(buyA_lbs) * p.priceA;
+  var departB      = preFuelB + buyB_lbs;
+  var landC        = departB - p.burnBC;
+
+  return {
+    totalCost:      costA + costB,
+    fobLbs:         p.fuelOnBoardLbs,
+    buyA_lbs:       buyA_lbs,
+    departA_lbs:    actualDepartA,
+    costA:          costA,
+    burnAB_act:     burnAB_act,
+    penaltyLbs:     0,
+    penaltyGal:     0,
+    actualLandB:    actualLandB,
+    taxiB:          p.taxiB,
+    preFuelB:       preFuelB,
+    extraTankerLbs: 0,
+    buyB_lbs:       buyB_lbs,
+    feeB:           feeB_paid,
+    departB_lbs:    departB,
+    costB:          costB,
+    burnBC:         p.burnBC,
+    landC_lbs:      landC
+  };
+}
+
+// ── Core model ────────────────────────────────────────────────────────────────
+function buildPlan(p, departA_target) {
+  var baselineDepartA = p.burnAB + p.minFuelB;
+  var extraTankerLbs  = Math.max(0, departA_target - baselineDepartA);
+
+  var penaltyGal  = PENALTY_RATE * p.eteAB * extraTankerLbs;
+  var penaltyLbs  = galToLbs(penaltyGal);
+  var burnAB_act  = p.burnAB + penaltyLbs;
+
+  var departA = departA_target;
+  if (departA > p.maxPracticalFuel) return null;
+
+  var minBuyA  = Math.max(0, departA - p.fuelOnBoardLbs);
+  var feeResA  = cheapestPurchase(minBuyA, p.priceA, 0, 0, p.maxUpliftLbs_A);
+  var actualDepartA = p.fuelOnBoardLbs + feeResA.buyLbs;
+  if (actualDepartA > p.maxPracticalFuel) return null;
+
+  var actualExtra     = Math.max(0, actualDepartA - baselineDepartA);
+  penaltyGal          = PENALTY_RATE * p.eteAB * actualExtra;
+  penaltyLbs          = galToLbs(penaltyGal);
+  burnAB_act          = p.burnAB + penaltyLbs;
+
+  var actualLandB = actualDepartA - burnAB_act;
+  if (actualLandB < p.minFuelB) return null;
+
+  var preFuelB = actualLandB - p.taxiB;
+  if (preFuelB < 0) return null;
+
+  var departB_need = p.burnBC + p.minFuelC;
+  var minBuyB      = Math.max(0, departB_need - preFuelB);
+  var maxUpliftB   = (p.maxUpliftGal_B !== null) ? galToLbs(p.maxUpliftGal_B) : null;
+  var feeResB      = cheapestPurchase(minBuyB, p.priceB, p.feeB, p.waiverB, maxUpliftB);
+
+  var departB = preFuelB + feeResB.buyLbs;
+  var landC   = departB - p.burnBC;
+
+  return {
+    totalCost:      feeResA.totalCost + feeResB.totalCost,
+    fobLbs:         p.fuelOnBoardLbs,
+    buyA_lbs:       feeResA.buyLbs,
+    departA_lbs:    actualDepartA,
+    costA:          feeResA.totalCost,
+    burnAB_act:     burnAB_act,
+    penaltyLbs:     penaltyLbs,
+    penaltyGal:     penaltyGal,
+    actualLandB:    actualLandB,
+    taxiB:          p.taxiB,
+    preFuelB:       preFuelB,
+    extraTankerLbs: actualExtra,
+    buyB_lbs:       feeResB.buyLbs,
+    feeB:           feeResB.fee,
+    departB_lbs:    departB,
+    costB:          feeResB.totalCost,
+    burnBC:         p.burnBC,
+    landC_lbs:      landC
+  };
+}
+
+// ── Optimize ──────────────────────────────────────────────────────────────────
+function optimize() {
+  try { runOptimize(); } catch(e) { showAlert('Error: ' + e.message + ' (line ' + e.lineNumber + ')'); }
+}
+function runOptimize() {
+  var p = {
+    priceA:          gv('priceA'),
+    priceB:          gv('priceB'),
+    feeB:            gv('feeB'),
+    waiverB:         gv('waiverB'),
+    burnAB:          gv('burnAB'),
+    burnBC:          gv('burnBC'),
+    eteAB:           gv('eteAB'),
+    minFuelB:        gv('minFuelB'),
+    minFuelC:        gv('minFuelC'),
+    taxiB:           gv('taxiB'),
+    maxPracticalFuel:gv('maxPracticalFuel'),
+    fuelOnBoardLbs:  gv('fuelOnBoard'),
+    maxUpliftLbs_A:  null,
+    maxUpliftGal_B:  null
+  };
+
+  if (!p.priceA || !p.priceB || !p.burnAB || !p.burnBC || !p.maxPracticalFuel) {
+    showAlert('Please fill in all required fields: prices, burns, and max additional fuel.');
+    return;
+  }
+  p.maxPracticalFuel = (p.burnAB + p.minFuelB) + p.maxPracticalFuel;
+
+  var base = buildBaseline(p);
+  if (!base) {
+    showAlert('Baseline is infeasible. Check that burn + reserve at B does not exceed max practical fuel load.');
+    return;
+  }
+
+  var baselineDepartA = p.burnAB + p.minFuelB;
+  var sweepStart = Math.max(p.fuelOnBoardLbs, baselineDepartA);
+  var sweepEnd   = p.maxPracticalFuel;
+
+  var best = null, bestCost = Infinity;
+
+  for (var dep = sweepStart; dep <= sweepEnd; dep += 10) {
+    var r = buildPlan(p, dep);
+    if (!r) continue;
+    if (r.totalCost < bestCost) { bestCost = r.totalCost; best = r; }
+  }
+
+  if (!best) best = base;
+
+  hideAlert();
+  showResults(base, best, p);
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Strategy text ─────────────────────────────────────────────────────────────
+// Returns { text, detail, altText, altDetail }
+function strategyText(base, opt, p) {
+  var a = aptA(), b = aptB(), c = aptC();
+  var savings      = base.totalCost - opt.totalCost;
+  var isTanker     = opt.extraTankerLbs > 50;
+  var tankerGal    = Math.round(lbsToGal(opt.extraTankerLbs));
+  var boughtBgal   = Math.round(lbsToGal(opt.buyB_lbs));
+  var buyingAtB    = opt.buyB_lbs > 50;
+  var feePaidOpt   = opt.feeB > 0;
+  var hasWaiver    = p.waiverB > 0 && p.feeB > 0;
+
+  // Was the fee already going to be waived in the no-tankering baseline?
+  // IMPORTANT: compare gallons purchased vs waiver threshold directly — do NOT
+  // use base.feeB === 0, because base.feeB can be 0 when the minimum buy
+  // happens to exactly equal the waiver threshold. That scenario (baseline
+  // just barely clears waiver) is functionally the same as "baseline pays fee"
+  // for strategy classification purposes: it means the waiver is not robustly
+  // waived and the optimizer may be working to ensure it stays waived.
+  // Using the gallon comparison gives a clean, unambiguous boundary.
+  var baseGalAtB    = lbsToGal(base.buyB_lbs);
+  var baseWaivesFee = hasWaiver && baseGalAtB >= p.waiverB;
+
+  // Does the optimized plan waive the fee when baseline would have paid it
+  // (or only barely cleared the threshold)?
+  var tankeringWaivesFee = hasWaiver && !baseWaivesFee && opt.feeB === 0;
+
+  // Is the optimized plan buying MORE at B than the minimum needed?
+  var minNeededAtB   = Math.max(0, p.burnBC + p.minFuelC - (opt.preFuelB || 0));
+  var extraAtB       = opt.buyB_lbs - minNeededAtB;
+  var buyingExtraAtB = extraAtB > 50;
+
+  var result = { text: '', detail: '', altText: null, altDetail: null };
+
+  // Case 1: No tankering worthwhile
+  if (!isTanker) {
+    if (buyingExtraAtB && hasWaiver && opt.feeB === 0) {
+      var extraGalAtB = Math.round(lbsToGal(extraAtB));
+      result.text   = 'Do not tanker at ' + a + '. Buy ' + boughtBgal + ' gal at ' + b + ' to waive the ' + fmtDollar(p.feeB) + ' fee.';
+      result.detail = 'You will depart ' + b + ' with ' + extraGalAtB + ' gal more than you need for ' + c + '. That extra fuel costs ' + fmtDollar(lbsToGal(extraAtB) * p.priceB) + ' but eliminates the ' + fmtDollar(p.feeB) + ' fee — net saving ' + fmtDollar(savings) + '. Confirm weight limits allow the extra fuel at ' + b + '.';
+      result.altText   = 'Buy minimum (' + Math.round(lbsToGal(minNeededAtB)) + ' gal) at ' + b + ' and pay the ' + fmtDollar(p.feeB) + ' fee.';
+      result.altDetail = 'Total cost ' + fmtDollar(base.totalCost) + ' — ' + fmtDollar(savings) + ' more than the plan above, but you depart ' + b + ' at minimum fuel.';
+      return result;
+    }
+    if (hasWaiver && baseWaivesFee) {
+      result.text   = 'Buy minimum fuel at ' + a + ' and top up at ' + b + '.';
+      result.detail = 'The price difference between ' + a + ' and ' + b + ' does not justify the extra weight. Your minimum purchase at ' + b + ' already clears the ' + p.waiverB + '-gallon waiver, so no fee is due either way.';
+      return result;
+    }
+    if (hasWaiver && !baseWaivesFee) {
+      result.text   = 'Buy minimum fuel at ' + a + ' and pay the ' + fmtDollar(p.feeB) + ' fee at ' + b + '.';
+      result.detail = 'At $' + p.priceA + '/gal vs $' + p.priceB + '/gal, the price difference is not enough to justify tankering. Buying ' + p.waiverB + ' gal at ' + b + ' to waive the fee costs more than simply paying it.';
+      return result;
+    }
+    result.text   = 'Buy minimum fuel at ' + a + ', then buy what you need at ' + b + '.';
+    result.detail = 'At $' + p.priceA + '/gal vs $' + p.priceB + '/gal, the price difference is not enough to offset the penalty burn from carrying extra fuel. Buy what you need at each stop.';
+    return result;
+  }
+
+  // Case 2: Tankering + skip B entirely + paying fee
+  if (!buyingAtB && feePaidOpt) {
+    result.text   = 'Tanker ' + tankerGal + ' extra gal at ' + a + ', arrive self-sufficient at ' + b + ', and pay the ' + fmtDollar(p.feeB) + ' fee.';
+    result.detail = 'Fuel at ' + b + ' is $' + p.priceB + '/gal. Even after paying the ' + fmtDollar(p.feeB) + ' fee, loading everything at ' + a + ' for $' + p.priceA + '/gal saves ' + fmtDollar(savings) + ' compared to buying at ' + b + '.';
+    return result;
+  }
+
+  // Case 3: Tankering + skip B entirely + no fee due
+  if (!buyingAtB) {
+    result.text   = 'Tanker ' + tankerGal + ' extra gal at ' + a + ' — no fuel purchase needed at ' + b + '.';
+    result.detail = 'Load up at ' + a + ' for $' + p.priceA + '/gal and skip the $' + p.priceB + '/gal fuel at ' + b + ' entirely. After the penalty burn for carrying extra weight, you save ' + fmtDollar(savings) + '.';
+    return result;
+  }
+
+  // Case 4: Tankering + buying at B + tanker tips fee from paid (or borderline) to waived
+  if (buyingAtB && tankeringWaivesFee) {
+    result.text   = 'Tanker ' + tankerGal + ' extra gal at ' + a + ' and buy ' + boughtBgal + ' gal at ' + b + ' — waiving the ' + fmtDollar(p.feeB) + ' fee.';
+    result.detail = 'Without tankering, your purchase at ' + b + ' falls short of the ' + p.waiverB + '-gallon waiver and you owe the ' + fmtDollar(p.feeB) + ' fee. Tankering at ' + a + ' lets you top up to the waiver threshold at ' + b + ', eliminating the fee. Total saving: ' + fmtDollar(savings) + '.';
+    return result;
+  }
+
+  // Case 5: Tankering + buying at B + paying fee
+  if (buyingAtB && feePaidOpt) {
+    result.text   = 'Tanker ' + tankerGal + ' extra gal at ' + a + ', buy ' + boughtBgal + ' gal at ' + b + ', and pay the ' + fmtDollar(p.feeB) + ' fee.';
+    result.detail = 'Buying ' + p.waiverB + ' gal at ' + b + ' to waive the fee costs more than just paying it. Load cheap fuel at ' + a + ' ($' + p.priceA + '/gal), buy the minimum at ' + b + ' ($' + p.priceB + '/gal), and pay the fee.';
+    return result;
+  }
+
+  // Case 6: Tankering + buying at B + fee waived either way
+  // Two sub-cases based on whether the waiver threshold is a binding floor constraint:
+  //   6a: opt buys ≈ waiver threshold → tankering reduced uplift as far as possible
+  //       without triggering the fee; waiver floor is the binding constraint.
+  //   6b: opt buys well above threshold → waiver is incidental; pure price arbitrage.
+  if (buyingAtB && baseWaivesFee) {
+    var waiverLbsRef   = galToLbs(p.waiverB);
+    var atWaiverFloor  = hasWaiver && Math.abs(opt.buyB_lbs - waiverLbsRef) < galToLbs(20); // within ~20 gal of threshold
+    if (atWaiverFloor) {
+      result.text   = 'Tanker ' + tankerGal + ' extra gal at ' + a + ' and reduce your ' + b + ' purchase to the waiver minimum (' + boughtBgal + ' gal).';
+      result.detail = 'Tankering lowers how much fuel you need at ' + b + ', but buying less than ' + p.waiverB + ' gal would trigger a ' + fmtDollar(p.feeB) + ' fee — so the plan targets exactly the waiver threshold. The savings come from replacing $' + p.priceB + '/gal ' + b + ' fuel with $' + p.priceA + '/gal ' + a + ' fuel, minus the penalty burn. Net saving: ' + fmtDollar(savings) + '.';
+    } else {
+      result.text   = 'Tanker ' + tankerGal + ' extra gal at ' + a + ' and buy ' + boughtBgal + ' gal at ' + b + '.';
+      result.detail = 'The waiver threshold is not a constraint here — your purchase at ' + b + ' clears it regardless. The savings come entirely from the $' + (p.priceB - p.priceA).toFixed(2) + '/gal price difference: load cheap fuel at ' + a + ' ($' + p.priceA + '/gal) and buy less at ' + b + ' ($' + p.priceB + '/gal). Net saving after penalty burn: ' + fmtDollar(savings) + '.';
+    }
+    return result;
+  }
+
+  // Case 7: Tankering + buying at B + no fee program
+  result.text   = 'Tanker ' + tankerGal + ' extra gal at ' + a + ' and buy ' + boughtBgal + ' gal at ' + b + '.';
+  result.detail = 'Load cheap fuel at ' + a + ' ($' + p.priceA + '/gal) and buy less at ' + b + ' ($' + p.priceB + '/gal). The $' + (p.priceB - p.priceA).toFixed(2) + '/gal price difference saves ' + fmtDollar(savings) + ' after the penalty burn.';
+  return result;
+}
+
+// ── Display results ───────────────────────────────────────────────────────────
+function showResults(base, opt, p) {
+  adjCurrentP    = p;
+  adjCurrentOpt  = opt;
+  adjCurrentBase = base;
+  document.getElementById('adj-panel').classList.remove('open');
+  document.getElementById('adj-result').style.display = 'none';
+  document.getElementById('adj-input').value = '';
+
+  var savings  = base.totalCost - opt.totalCost;
+  var isTanker = opt.extraTankerLbs > 50;
+  var banner   = document.getElementById('strategy-banner');
+
+  banner.className = 'strategy-banner ' + (savings > 50 ? 'positive' : savings < -50 ? 'negative' : 'neutral');
+
+  document.getElementById('r-savings').textContent = fmtDollar(Math.abs(savings));
+  document.getElementById('r-savings').className   = 'sb-value ' + (savings > 50 ? 'green' : savings < -50 ? 'red' : 'amber');
+  document.getElementById('r-savings-note').textContent = savings > 50
+    ? 'saved by optimized plan vs no-tankering baseline'
+    : savings < -50 ? 'optimized costs more \u2014 baseline is better' : 'plans are approximately equal cost';
+
+  var badge = document.getElementById('r-badge');
+  if (!isTanker) {
+    badge.innerHTML = '<span class="sb-badge eq">No tankering benefit \u2014 baseline is optimal</span>';
+  } else if (savings > 0) {
+    badge.innerHTML = '<span class="sb-badge go">&#10004; Tanker ' + Math.round(opt.extraTankerLbs).toLocaleString() + ' lbs / ' + Math.round(lbsToGal(opt.extraTankerLbs)).toLocaleString() + ' gal at ' + aptA() + '</span>';
+  } else {
+    badge.innerHTML = '<span class="sb-badge no">&#10008; Tankering not worthwhile \u2014 use baseline</span>';
+  }
+
+  document.getElementById('r-base-tot').textContent  = fmtDollar(base.totalCost);
+  document.getElementById('r-opt-tot').textContent   = fmtDollar(opt.totalCost);
+  document.getElementById('r-tanker-amt').textContent = isTanker
+    ? Math.round(opt.extraTankerLbs).toLocaleString() + ' lbs / ' + Math.round(lbsToGal(opt.extraTankerLbs)).toLocaleString() + ' gal'
+    : 'None';
+
+  var feeHero = document.getElementById('r-fee-b-hero');
+  feeHero.textContent = opt.feeB === 0 ? (p.waiverB > 0 ? 'WAIVED' : 'N/A') : fmtDollar(opt.feeB);
+  feeHero.className   = 'ss-val ' + (opt.feeB === 0 ? 'green' : 'red');
+
+  // ── Breakeven thresholds (fixed — independent of optimizer output) ───────
+  // These are properties of the route and prices at A only, not what opt chose.
+  var bkArbWrap    = document.getElementById('r-bk-arb-wrap');
+  var bkArbVal     = document.getElementById('r-bk-arb-val');
+  var bkArbNote    = document.getElementById('r-bk-arb-note');
+  var bkWaiverWrap = document.getElementById('r-bk-waiver-wrap');
+  var bkWaiverVal  = document.getElementById('r-bk-waiver-val');
+  var bkWaiverNote = document.getElementById('r-bk-waiver-note');
+  var zoneBox      = document.getElementById('zone-box');
+  var zoneText     = document.getElementById('zone-text');
+
+  var hasWaiverBk  = p.waiverB > 0 && p.feeB > 0;
+  var buyingAtB    = opt.buyB_lbs > 50;
+
+  // Threshold 1 — Pure price arbitrage breakeven (no fee consideration)
+  // At what B price does carrying one extra gallon from A pay off?
+  // Each extra gal at A costs priceA, but burns penaltyRate×ETE extra gal of itself
+  // Net gal delivered per gal loaded = 1 - penaltyRate×ETE
+  // Breakeven: priceA / (1 - penaltyRate×ETE)
+  var penaltyFactor = 1 - (PENALTY_RATE * p.eteAB);
+  var arbThreshold  = penaltyFactor > 0 ? p.priceA / penaltyFactor : null;
+
+  // Threshold 2 — Waiver breakeven (only when fee program exists)
+  // At what B price does buying to the waiver threshold beat paying the fee?
+  // Extra cost of waiver vs minimum = fee, spread over waiverGal extra gallons
+  // vs what you'd have loaded at A: ceiling = priceA + fee/waiverGal
+  var waiverThreshold = hasWaiverBk ? (p.priceA + p.feeB / p.waiverB) : null;
+
+  var b = aptB(), a = aptA();
+
+  // Display Threshold 1
+  if (arbThreshold !== null) {
+    bkArbVal.textContent  = '$' + arbThreshold.toFixed(2) + '/gal';
+    bkArbNote.textContent = b + ' must exceed this for tankering to pay off';
+    bkArbWrap.style.display = '';
+  } else {
+    bkArbWrap.style.display = 'none';
+  }
+
+  // Display Threshold 2
+  if (waiverThreshold !== null) {
+    bkWaiverVal.textContent  = '$' + waiverThreshold.toFixed(2) + '/gal';
+    bkWaiverNote.textContent = b + ' must be below this to make buying to the waiver worthwhile';
+    bkWaiverWrap.style.display = '';
+  } else {
+    bkWaiverWrap.style.display = 'none';
+  }
+
+  // Zone explanation box
+  if (arbThreshold !== null) {
+    var zoneLines = [];
+    if (waiverThreshold !== null) {
+      zoneLines.push('<b>Below $' + arbThreshold.toFixed(2) + '</b> — Don\'t tanker. Buy everything at ' + b + '.');
+      zoneLines.push('<b>$' + arbThreshold.toFixed(2) + ' – $' + waiverThreshold.toFixed(2) + '</b> — Tanker at ' + a + ' and buy to the waiver at ' + b + ' (fee waived).');
+      zoneLines.push('<b>Above $' + waiverThreshold.toFixed(2) + '</b> — Tanker at ' + a + ' and pay the fee at ' + b + '. Buying to the waiver costs more than the fee.');
+
+      // Detect constraint caveat: APF price is above waiver threshold but optimizer
+      // still bought to the waiver — means W&B limited how much could be tankered.
+      var actualPriceB = p.priceB;
+      if (actualPriceB > waiverThreshold && opt.feeB === 0 && opt.buyB_lbs > 50) {
+        zoneLines.push('<br><i>Note: ' + b + ' at $' + actualPriceB.toFixed(2) + '/gal falls in the "pay the fee" zone, but your W&amp;B limit prevents tankering enough to skip the ' + p.waiverB + '-gal waiver purchase. The optimizer is doing the best it can within your weight constraint — if payload allows more fuel at ' + a + ', increasing Max Additional Fuel would let you skip the waiver purchase and pay the fee instead.</i>');
+      }
+      // Detect opposite: APF below arb threshold but optimizer still tankers
+      // (shouldn't normally happen, but good to flag)
+      if (actualPriceB < arbThreshold && isTanker) {
+        zoneLines.push('<br><i>Note: ' + b + ' at $' + actualPriceB.toFixed(2) + '/gal is below the tanker threshold — review inputs.</i>');
+      }
+    } else {
+      zoneLines.push('<b>Below $' + arbThreshold.toFixed(2) + '</b> — Don\'t tanker. Buy at ' + b + '.');
+      zoneLines.push('<b>Above $' + arbThreshold.toFixed(2) + '</b> — Tanker at ' + a + ' and buy less at ' + b + '.');
+    }
+    zoneText.innerHTML = zoneLines.join('<br>');
+    zoneBox.style.display = '';
+  } else {
+    zoneBox.style.display = 'none';
+  }
+
+  var strat = strategyText(base, opt, p);
+  document.getElementById('strat-text').textContent   = strat.text;
+  document.getElementById('strat-detail').textContent = strat.detail;
+  var altBox = document.getElementById('alt-plan-box');
+  if (strat.altText) {
+    document.getElementById('alt-strat-text').textContent   = strat.altText;
+    document.getElementById('alt-strat-detail').textContent = strat.altDetail;
+    altBox.style.display = 'block';
+  } else {
+    altBox.style.display = 'none';
+  }
+
+  function fmtFee(fee, hasWaiver) {
+    return fee > 0 ? fmtDollar(fee) + ' \u26A0' : hasWaiver ? 'WAIVED \u2713' : 'N/A';
+  }
+  var hasW = p.waiverB > 0;
+
+  setEl('b-fob',     fmtLbs(base.fobLbs));
+  setEl('b-buyA',    fmtBuy(base.buyA_lbs));
+  setEl('b-departA', fmtLbs(base.departA_lbs));
+  setEl('b-costA',   fmtDollar(base.costA));
+  setEl('b-burnAB',  fmtLbs(base.burnAB_act));
+  setEl('b-landB',   fmtLbs(base.actualLandB));
+  setEl('b-taxiB',   fmtLbs(base.taxiB));
+  setEl('b-prefuel', fmtLbs(base.preFuelB));
+  setEl('b-buyB',    fmtBuy(base.buyB_lbs));
+  setEl('b-feeB',    fmtFee(base.feeB, hasW), base.feeB > 0 ? 'red' : 'green');
+  setEl('b-departB', fmtLbs(base.departB_lbs));
+  setEl('b-costB',   fmtDollar(base.costB));
+  setEl('b-burnBC',  fmtLbs(base.burnBC));
+  setEl('b-landC',   fmtLbs(Math.max(0, base.landC_lbs)));
+  document.getElementById('b-total').textContent = fmtDollar(base.totalCost);
+
+  setEl('o-fob',     fmtLbs(opt.fobLbs));
+  setEl('o-buyA',    fmtBuy(opt.buyA_lbs), 'blue');
+  setEl('o-extra',   isTanker
+    ? '+' + Math.round(opt.extraTankerLbs).toLocaleString() + ' lbs / +' + Math.round(lbsToGal(opt.extraTankerLbs)).toLocaleString() + ' gal'
+    : 'none', isTanker ? 'blue' : 'muted');
+  setEl('o-departA', fmtLbs(opt.departA_lbs), 'blue');
+  setEl('o-costA',   fmtDollar(opt.costA));
+  setEl('o-burnAB',  fmtLbs(opt.burnAB_act));
+  setEl('o-penalty', opt.penaltyLbs > 1
+    ? '+' + Math.round(opt.penaltyLbs).toLocaleString() + ' lbs / +' + Math.round(opt.penaltyGal).toLocaleString() + ' gal'
+    : 'none', opt.penaltyLbs > 1 ? 'red' : 'muted');
+  setEl('o-landB',   fmtLbs(opt.actualLandB));
+  setEl('o-taxiB',   fmtLbs(opt.taxiB));
+  setEl('o-prefuel', fmtLbs(opt.preFuelB));
+  setEl('o-buyB',    fmtBuy(opt.buyB_lbs), opt.buyB_lbs > 50 ? 'blue' : 'muted');
+  setEl('o-feeB',    fmtFee(opt.feeB, hasW), opt.feeB > 0 ? 'red' : 'green');
+  setEl('o-departB', fmtLbs(opt.departB_lbs));
+  setEl('o-costB',   fmtDollar(opt.costB));
+  setEl('o-burnBC',  fmtLbs(opt.burnBC));
+  setEl('o-landC',   fmtLbs(Math.max(0, opt.landC_lbs)));
+  document.getElementById('o-total').textContent = fmtDollar(opt.totalCost);
+
+  document.getElementById('adj-btn').style.display = 'block';
+  document.getElementById('adj-panel').classList.remove('open');
+  document.getElementById('adj-result').style.display = 'none';
+  document.getElementById('adj-input').value = '';
+
+  updateLabels();
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function showAlert(msg) {
+  var el = document.getElementById('alert-box');
+  el.textContent = '\u26A0 ' + msg;
+  el.style.display = 'block';
+  document.getElementById('results').style.display = 'block';
+}
+function hideAlert() { document.getElementById('alert-box').style.display = 'none'; }
+
+updateLabels();
+</script>
+</body>
+</html>
