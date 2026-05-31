@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FuelOpt -- Multi-Leg Optimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #f0f2f5; --surface: #ffffff; --surface2: #f7f8fa;
+  --border: #dde1e8; --border2: #c8cdd8; --text: #1a1e2a;
+  --muted: #6b7385; --label: #3d4356; --blue: #1a6ef5;
+  --blue-lt: #e8f0fe; --green: #0d9e6e; --green-lt: #e6f7f1;
+  --red: #d93025; --red-lt: #fce8e6; --amber: #b45309; --amber-lt: #fef3c7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08); --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
+}
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+.container { max-width: 1100px; margin: 0 auto; padding: 28px 20px 80px; }
+header { margin-bottom: 24px; }
+.logo { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--blue); margin-bottom: 6px; }
+h1 { font-size: clamp(22px, 4vw, 36px); font-weight: 800; letter-spacing: -0.5px; color: var(--text); line-height: 1.1; }
+h1 em { font-style: normal; color: var(--blue); }
+.sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 12px; box-shadow: var(--shadow); }
+.card-title { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
+.card-title.blue { color: var(--blue); } .card-title.green { color: var(--green); } .card-title.muted { color: var(--muted); }
+.card-icon { width: 22px; height: 22px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.card-icon.blue { background: var(--blue-lt); color: var(--blue); }
+.card-icon.green { background: var(--green-lt); color: var(--green); }
+.card-icon.amber { background: var(--amber-lt); color: var(--amber); }
+.card-icon.muted { background: var(--surface2); color: var(--muted); }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.g4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+.g2:last-child, .g3:last-child, .g4:last-child { margin-bottom: 0; }
+@media (max-width: 700px) { .g3, .g4 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 460px) { .g2, .g3, .g4 { grid-template-columns: 1fr; } }
+.field { display: flex; flex-direction: column; }
+label { font-size: 10px; color: var(--label); letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 5px; font-weight: 500; }
+label .u { color: var(--blue); margin-left: 3px; }
+input[type="number"] { background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 15px; padding: 8px 11px; outline: none; transition: border-color 0.15s; -moz-appearance: textfield; width: 100%; }
+input[type="number"]::-webkit-outer-spin-button, input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,110,245,0.12); background: #fff; }
+.hint { font-size: 10px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+.section-divider { height: 1px; background: var(--border); margin: 14px 0; }
+.stop-section-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; margin-top: 14px; }
+.airport-input { background: var(--blue-lt); border: 1.5px solid #a3c4fd; color: var(--blue); font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; text-align: center; width: 72px; padding: 6px 4px; border-radius: 6px; outline: none; }
+.airport-input:focus { border-color: var(--blue); background: #fff; }
+.fob-bar { display: flex; align-items: center; gap: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 20px; margin-bottom: 12px; }
+.fob-bar label { font-size: 10px; color: var(--label); letter-spacing: 0.8px; text-transform: uppercase; font-weight: 500; white-space: nowrap; }
+.fob-bar label .u { color: var(--blue); margin-left: 3px; }
+.fob-bar input { width: 160px; }
+.btn-calc { width: 100%; background: var(--blue); color: #fff; border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 700; padding: 15px; cursor: pointer; margin-top: 6px; box-shadow: 0 2px 8px rgba(26,110,245,0.3); }
+.btn-calc:hover { background: #1558d6; }
+.alert-box { background: var(--red-lt); border: 1px solid #f5a9a3; border-radius: 6px; padding: 12px 16px; font-size: 12px; color: var(--red); margin-bottom: 12px; display: none; }
+#results { display: none; animation: slideUp 0.35s ease; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.results-head { font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin: 24px 0 14px; display: flex; align-items: center; gap: 10px; }
+.results-head::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.strategy-banner { border-radius: 10px; padding: 20px 24px; margin-bottom: 14px; border: 1px solid; box-shadow: var(--shadow-md); }
+.strategy-banner.positive { background: linear-gradient(135deg, #e6f7f1, #e8f0fe); border-color: #a7d7c5; }
+.strategy-banner.neutral  { background: linear-gradient(135deg, #fef3c7, #fef9ee); border-color: #fcd34d; }
+.strategy-banner.negative { background: linear-gradient(135deg, #fce8e6, #fff5f5); border-color: #f5a9a3; }
+.sb-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 14px; }
+.sb-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.sb-value { font-size: 38px; font-weight: 800; line-height: 1; }
+.sb-value.green { color: var(--green); } .sb-value.amber { color: var(--amber); } .sb-value.red { color: var(--red); }
+.sb-note { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.sb-stats { display: flex; gap: 24px; flex-wrap: wrap; }
+.ss-label { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 3px; }
+.ss-val { font-size: 16px; font-weight: 700; color: var(--text); }
+.ss-val.green { color: var(--green); }
+.strategy-box { border-radius: 7px; padding: 14px 16px; border: 1px solid rgba(0,0,0,0.08); background: rgba(255,255,255,0.7); }
+.strat-label { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+.strat-moves { display: flex; flex-direction: column; gap: 5px; }
+.strat-move { font-size: 13px; color: var(--text); line-height: 1.5; display: flex; gap: 8px; align-items: baseline; }
+.badge { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; letter-spacing: 0.5px; }
+.badge.tanker { background: var(--blue-lt); color: var(--blue); }
+.badge.waiver { background: var(--green-lt); color: var(--green); }
+.badge.fee { background: var(--red-lt); color: var(--red); }
+.badge.min { background: var(--surface2); color: var(--muted); }
+.cmp-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+@media (max-width: 640px) { .cmp-wrap { grid-template-columns: 1fr; } }
+.cmp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
+.cmp-card.opt { border-color: #a3c4fd; }
+.cmp-head { padding: 10px 16px; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+.cmp-card:not(.opt) .cmp-head { background: var(--surface2); color: var(--muted); }
+.cmp-card.opt .cmp-head { background: var(--blue-lt); color: var(--blue); }
+.cmp-stop { padding: 10px 16px; border-bottom: 1px solid var(--border); }
+.cmp-stop:last-child { border-bottom: none; }
+.cmp-stop-hdr { font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+.row { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; border-bottom: 1px solid #f0f2f5; gap: 8px; }
+.row:last-child { border-bottom: none; }
+.rk { font-size: 10px; color: var(--muted); flex-shrink: 0; }
+.rv { font-size: 11px; color: var(--text); text-align: right; }
+.rv.blue { color: var(--blue); font-weight: 600; }
+.rv.green { color: var(--green); font-weight: 600; }
+.rv.red { color: var(--red); }
+.rv.muted { color: var(--muted); }
+.cmp-total { display: flex; justify-content: space-between; align-items: center; padding: 11px 16px; border-top: 2px solid var(--border); }
+.cmp-card:not(.opt) .cmp-total { background: var(--surface2); }
+.cmp-card.opt .cmp-total { background: var(--blue-lt); }
+.cmp-total .tk { font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; }
+.cmp-total .tv { font-size: 17px; font-weight: 700; }
+.cmp-card:not(.opt) .cmp-total .tv { color: var(--text); }
+.cmp-card.opt .cmp-total .tv { color: var(--blue); }
+.btn-copy { width: 100%; background: var(--surface); color: var(--blue); border: 1.5px solid var(--blue); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 12px; cursor: pointer; margin-top: 8px; }
+.btn-copy:hover { background: var(--blue-lt); }
+</style>
+</head>
+<body>
+<div class="container">
+<header>
+  <div class="logo">FuelOpt Pro</div>
+  <h1>Multi-Leg <em>Optimizer</em></h1>
+  <div class="sub">2 to 5 leg optimization -- enter up to 6 stops, leave unused stops blank</div>
+</header>
+<div class="alert-box" id="alert-box"></div>
+<div class="fob-bar">
+  <label>Starting Fuel on Board <span class="u">lbs</span></label>
+  <input type="number" id="fob" step="10" placeholder="0">
+  <span style="font-size:11px;color:var(--muted)">Before any uplift at first stop</span>
+</div>
+
+<!-- STOP A -->
+<div class="card">
+  <div class="card-title blue"><span class="card-icon blue">A</span><input class="airport-input" id="apt-0" maxlength="4" placeholder="A" oninput="this.value=this.value.toUpperCase()"><span style="margin-left:8px;font-size:11px;color:var(--muted)">First Stop</span></div>
+  <div class="stop-section-label">Fuel Pricing &amp; Fees</div>
+  <div class="g3">
+    <div class="field"><label>Price <span class="u">$/gal</span></label><input type="number" id="price-0" step="0.01"></div>
+    <div class="field"><label>Fee if Below Waiver <span class="u">$</span></label><input type="number" id="fee-0" step="1"></div>
+    <div class="field"><label>Waiver Threshold <span class="u">gal</span></label><input type="number" id="waiver-0" step="1"><div class="hint">0 = no program</div></div>
+  </div>
+  <div class="stop-section-label">Leg A to B</div>
+  <div class="g4">
+    <div class="field"><label>Burn to B <span class="u">lbs</span></label><input type="number" id="burn-0" step="10"></div>
+    <div class="field"><label>Land at B with <span class="u">lbs</span></label><input type="number" id="land-0" step="10"></div>
+    <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-0" step="0.1"></div>
+    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-0" step="100"><div class="hint">Above baseline load</div></div>
+  </div>
+</div>
+
+<!-- STOP B -->
+<div class="card">
+  <div class="card-title blue"><span class="card-icon blue">B</span><input class="airport-input" id="apt-1" maxlength="4" placeholder="B" oninput="this.value=this.value.toUpperCase()"><span style="margin-left:8px;font-size:11px;color:var(--muted)">Stop 2</span></div>
+  <div class="stop-section-label">Fuel Pricing &amp; Fees</div>
+  <div class="g3">
+    <div class="field"><label>Price <span class="u">$/gal</span></label><input type="number" id="price-1" step="0.01"></div>
+    <div class="field"><label>Fee if Below Waiver <span class="u">$</span></label><input type="number" id="fee-1" step="1"></div>
+    <div class="field"><label>Waiver Threshold <span class="u">gal</span></label><input type="number" id="waiver-1" step="1"><div class="hint">0 = no program</div></div>
+  </div>
+  <div class="stop-section-label">Leg B to C</div>
+  <div class="g4">
+    <div class="field"><label>Burn to C <span class="u">lbs</span></label><input type="number" id="burn-1" step="10"></div>
+    <div class="field"><label>Land at C with <span class="u">lbs</span></label><input type="number" id="land-1" step="10"></div>
+    <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-1" step="0.1"></div>
+    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-1" step="100"></div>
+  </div>
+</div>
+
+<!-- STOP C -->
+<div class="card">
+  <div class="card-title green"><span class="card-icon green">C</span><input class="airport-input" id="apt-2" maxlength="4" placeholder="C" oninput="this.value=this.value.toUpperCase()"><span style="margin-left:8px;font-size:11px;color:var(--muted)">Stop 3 (optional)</span></div>
+  <div class="stop-section-label">Fuel Pricing &amp; Fees</div>
+  <div class="g3">
+    <div class="field"><label>Price <span class="u">$/gal</span></label><input type="number" id="price-2" step="0.01"></div>
+    <div class="field"><label>Fee if Below Waiver <span class="u">$</span></label><input type="number" id="fee-2" step="1"></div>
+    <div class="field"><label>Waiver Threshold <span class="u">gal</span></label><input type="number" id="waiver-2" step="1"><div class="hint">0 = no program</div></div>
+  </div>
+  <div class="stop-section-label">Leg C to D</div>
+  <div class="g4">
+    <div class="field"><label>Burn to D <span class="u">lbs</span></label><input type="number" id="burn-2" step="10"></div>
+    <div class="field"><label>Land at D with <span class="u">lbs</span></label><input type="number" id="land-2" step="10"></div>
+    <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-2" step="0.1"></div>
+    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-2" step="100"></div>
+  </div>
+</div>
+
+<!-- STOP D -->
+<div class="card">
+  <div class="card-title green"><span class="card-icon green">D</span><input class="airport-input" id="apt-3" maxlength="4" placeholder="D" oninput="this.value=this.value.toUpperCase()"><span style="margin-left:8px;font-size:11px;color:var(--muted)">Stop 4 (optional)</span></div>
+  <div class="stop-section-label">Fuel Pricing &amp; Fees</div>
+  <div class="g3">
+    <div class="field"><label>Price <span class="u">$/gal</span></label><input type="number" id="price-3" step="0.01"></div>
+    <div class="field"><label>Fee if Below Waiver <span class="u">$</span></label><input type="number" id="fee-3" step="1"></div>
+    <div class="field"><label>Waiver Threshold <span class="u">gal</span></label><input type="number" id="waiver-3" step="1"><div class="hint">0 = no program</div></div>
+  </div>
+  <div class="stop-section-label">Leg D to E</div>
+  <div class="g4">
+    <div class="field"><label>Burn to E <span class="u">lbs</span></label><input type="number" id="burn-3" step="10"></div>
+    <div class="field"><label>Land at E with <span class="u">lbs</span></label><input type="number" id="land-3" step="10"></div>
+    <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-3" step="0.1"></div>
+    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-3" step="100"></div>
+  </div>
+</div>
+
+<!-- STOP E -->
+<div class="card">
+  <div class="card-title green"><span class="card-icon amber">E</span><input class="airport-input" id="apt-4" maxlength="4" placeholder="E" oninput="this.value=this.value.toUpperCase()"><span style="margin-left:8px;font-size:11px;color:var(--muted)">Stop 5 (optional)</span></div>
+  <div class="stop-section-label">Fuel Pricing &amp; Fees</div>
+  <div class="g3">
+    <div class="field"><label>Price <span class="u">$/gal</span></label><input type="number" id="price-4" step="0.01"></div>
+    <div class="field"><label>Fee if Below Waiver <span class="u">$</span></label><input type="number" id="fee-4" step="1"></div>
+    <div class="field"><label>Waiver Threshold <span class="u">gal</span></label><input type="number" id="waiver-4" step="1"><div class="hint">0 = no program</div></div>
+  </div>
+  <div class="stop-section-label">Leg E to F</div>
+  <div class="g4">
+    <div class="field"><label>Burn to F <span class="u">lbs</span></label><input type="number" id="burn-4" step="10"></div>
+    <div class="field"><label>Land at F with <span class="u">lbs</span></label><input type="number" id="land-4" step="10"></div>
+    <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-4" step="0.1"></div>
+    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-4" step="100"></div>
+  </div>
+</div>
+
+<!-- STOP F -->
+<div class="card">
+  <div class="card-title muted"><span class="card-icon muted">F</span><input class="airport-input" id="apt-5" maxlength="4" placeholder="F" oninput="this.value=this.value.toUpperCase()"><span style="margin-left:8px;font-size:11px;color:var(--muted)">Final Destination (optional)</span></div>
+  <div class="stop-section-label">Fuel Pricing &amp; Fees -- Final Stop</div>
+  <div class="g3">
+    <div class="field"><label>Price <span class="u">$/gal</span></label><input type="number" id="price-5" step="0.01"></div>
+    <div class="field"><label>Fee if Below Waiver <span class="u">$</span></label><input type="number" id="fee-5" step="1"></div>
+    <div class="field"><label>Waiver Threshold <span class="u">gal</span></label><input type="number" id="waiver-5" step="1"><div class="hint">0 = no program</div></div>
+  </div>
+  <div class="hint" style="margin-top:4px;">No leg fields needed -- this is the final destination. Landing fuel is set by the previous leg.</div>
+</div>
+
+<button class="btn-calc" onclick="optimize()">&#8635; CALCULATE OPTIMUM FUEL PLAN</button>
+
+<div id="results">
+  <div class="results-head">Analysis Results</div>
+  <div class="strategy-banner" id="strategy-banner">
+    <div class="sb-top">
+      <div>
+        <div class="sb-label">Total Savings vs Baseline</div>
+        <div class="sb-value" id="r-savings">-</div>
+        <div class="sb-note" id="r-savings-note">-</div>
+      </div>
+      <div class="sb-stats">
+        <div><div class="ss-label">Baseline Total</div><div class="ss-val" id="r-base-tot">-</div></div>
+        <div><div class="ss-label">Optimized Total</div><div class="ss-val green" id="r-opt-tot">-</div></div>
+      </div>
+    </div>
+    <div class="strategy-box">
+      <div class="strat-label">Stop-by-Stop Strategy</div>
+      <div class="strat-moves" id="strat-moves"></div>
+    </div>
+  </div>
+  <div class="cmp-wrap">
+    <div class="cmp-card">
+      <div class="cmp-head">// Baseline -- Minimum Purchase Each Stop</div>
+      <div id="base-stops"></div>
+      <div class="cmp-total"><span class="tk">Total Cost</span><span class="tv" id="base-grand-total">-</span></div>
+    </div>
+    <div class="cmp-card opt">
+      <div class="cmp-head">// Optimized -- Best Tankering Plan</div>
+      <div id="opt-stops"></div>
+      <div class="cmp-total"><span class="tk">Total Cost</span><span class="tv" id="opt-grand-total">-</span></div>
+    </div>
+  </div>
+  <button class="btn-copy" onclick="copyResults()">&#128203; Copy Results</button>
+  <div id="copy-confirm" style="display:none;font-size:11px;color:var(--green);text-align:center;margin-top:6px;">&#10004; Copied</div>
+</div>
+</div>
+
+<script>
+var DENSITY      = 6.75;
+var PENALTY_RATE = 0.005;
+var POST_LAND    = 200;
+var MAX_STOPS    = 6;
+
+// LOAD TEST -- fires immediately, no button needed
+window.onload = function() {
+  var el = document.getElementById('alert-box');
+  if (el) {
+    el.textContent = 'JS loaded OK -- tap Calculate to run';
+    el.style.display = 'block';
+    el.style.background = '#e6f7f1';
+    el.style.color = '#0d9e6e';
+    el.style.border = '1px solid #a7d7c5';
+  }
+};
+
+window.onerror = function(msg, src, line) {
+  var el = document.getElementById('alert-box');
+  if (el) { el.textContent = 'JS Error: ' + msg + ' (line ' + line + ')'; el.style.display = 'block'; }
+  return false;
+};
+
+function lbsToGal(lbs) { return lbs / DENSITY; }
+function galToLbs(gal) { return gal * DENSITY; }
+function fmtD(v)  { return '$' + Math.round(v).toLocaleString(); }
+function fmtL(v)  { return Math.round(v).toLocaleString() + ' lbs (' + Math.round(lbsToGal(v)) + ' gal)'; }
+function fmtB(v)  { return Math.round(lbsToGal(v)) + ' gal / ' + Math.round(v).toLocaleString() + ' lbs'; }
+function gv(id)   { return parseFloat(document.getElementById(id).value) || 0; }
+function gvs(id)  { var el = document.getElementById(id); return el ? el.value.trim().toUpperCase() : ''; }
+function setEl(id, txt) { var el = document.getElementById(id); if (el) el.textContent = txt; }
+
+function readStops() {
+  var stops = [];
+  for (var i = 0; i < MAX_STOPS; i++) {
+    var price = gv('price-' + i);
+    if (!price) continue;
+    stops.push({
+      idx:      i,
+      code:     gvs('apt-' + i) || String.fromCharCode(65 + i),
+      price:    price,
+      fee:      gv('fee-' + i),
+      waiver:   gv('waiver-' + i),
+      burn:     gv('burn-' + i),
+      land:     gv('land-' + i),
+      ete:      gv('ete-' + i),
+      maxExtra: gv('maxextra-' + i)
+    });
+  }
+  return stops;
+}
+
+function evalTrip(stops, departures, fob) {
+  var result = [];
+  var preFuel = fob;
+  for (var i = 0; i < stops.length; i++) {
+    var s = stops[i];
+    var dep = Math.max(departures[i], preFuel);
+    var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
+    if (dep < baselineDep - 1) return null;
+    var buyLbs = Math.max(0, dep - preFuel);
+    var buyGal = lbsToGal(buyLbs);
+    var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver) ? s.fee : 0;
+    var cost = buyGal * s.price + fee;
+    var r = {
+      code: s.code, preFuel: preFuel, buyLbs: buyLbs, buyGal: buyGal,
+      fee: fee, cost: cost, departLbs: dep, price: s.price,
+      waiver: s.waiver, feeAmt: s.fee, penaltyLbs: 0, penaltyGal: 0, landLbs: 0
+    };
+    if (s.burn > 0) {
+      var extra = Math.max(0, dep - baselineDep);
+      var penGal = PENALTY_RATE * s.ete * extra;
+      var penLbs = galToLbs(penGal);
+      var landLbs = dep - s.burn - penLbs;
+      if (landLbs < s.land - 1) return null;
+      r.penaltyLbs = penLbs;
+      r.penaltyGal = penGal;
+      r.landLbs = landLbs;
+      preFuel = landLbs - POST_LAND;
+      if (preFuel < 0) return null;
+    }
+    result.push(r);
+  }
+  return result;
+}
+
+function buildBaseline(stops, fob) {
+  var deps = [];
+  var pf = fob;
+  for (var i = 0; i < stops.length; i++) {
+    var s = stops[i];
+    var needed = (s.burn > 0) ? (s.burn + s.land) : s.land;
+    var dep = Math.max(pf, needed);
+    deps.push(dep);
+    if (s.burn > 0) { pf = dep - s.burn - POST_LAND; }
+  }
+  return evalTrip(stops, deps, fob);
+}
+
+function buildOptimized(stops, fob) {
+  var n = stops.length;
+  var memo = {};
+
+  var solve = function(idx, preFuel) {
+    if (idx >= n) return { cost: 0, deps: [] };
+    var band = Math.round(preFuel / 25);
+    var key = idx + '_' + band;
+    if (memo[key]) return memo[key];
+
+    var s = stops[idx];
+    var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
+    var maxDep = baselineDep + (s.burn > 0 ? s.maxExtra : 0);
+
+    // Build candidate list -- use exact values, no rounding on waiver threshold
+    var candList = [];
+    var seen = {};
+    var addCand = function(d) {
+      var key = Math.round(d * 10); // key at 0.1 lb precision
+      if (!seen[key]) { seen[key] = true; candList.push(d); }
+    }
+
+    // Sweep in 50 lb steps for better coverage
+    for (var d = baselineDep; d <= maxDep; d += 50) addCand(d);
+    addCand(maxDep);
+
+    // Add exact waiver threshold -- stored as exact float, not rounded
+    if (s.waiver > 0 && s.fee > 0) {
+      addCand(preFuel + galToLbs(s.waiver)); // exact: buy precisely waiver gal
+    }
+
+    // Sort candidates
+    candList.sort(function(a, b) { return a - b; });
+
+    var bestCost = Infinity;
+    var bestDeps = null;
+
+    for (var ci = 0; ci < candList.length; ci++) {
+      var dep = Math.max(candList[ci], preFuel);
+      if (dep < baselineDep - 5) continue;
+      if (dep > maxDep + galToLbs(s.waiver > 0 ? s.waiver : 0) + 10) continue;
+
+      var buyLbs = Math.max(0, dep - preFuel);
+      var buyGal = lbsToGal(buyLbs);
+      var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver) ? s.fee : 0;
+      var cost = buyGal * s.price + fee;
+
+      if (s.burn > 0) {
+        var extra = Math.max(0, dep - baselineDep);
+        var penLbs = galToLbs(PENALTY_RATE * s.ete * extra);
+        var landLbs = dep - s.burn - penLbs;
+        if (landLbs < s.land - 5) continue;
+        var nextPf = landLbs - POST_LAND;
+        if (nextPf < 0) continue;
+        var sub = solve(idx + 1, nextPf);
+        if (cost + sub.cost < bestCost) {
+          bestCost = cost + sub.cost;
+          bestDeps = [dep].concat(sub.deps);
+        }
+      } else {
+        if (cost < bestCost) {
+          bestCost = cost;
+          bestDeps = [dep];
+        }
+      }
+    }
+
+    var res = { cost: bestCost, deps: bestDeps || [] };
+    memo[key] = res;
+    return res;
+  }
+
+  var sol = solve(0, fob);
+  if (!sol.deps || sol.deps.length === 0) return null;
+  return evalTrip(stops, sol.deps, fob);
+}
+
+function optimize() {
+  try { runOptimize(); } catch(e) {
+    var el = document.getElementById('alert-box');
+    el.textContent = 'Error: ' + e.message;
+    el.style.display = 'block';
+    document.getElementById('results').style.display = 'block';
+  }
+}
+
+function runOptimize() {
+  var alertEl = document.getElementById('alert-box');
+  alertEl.style.display = 'none';
+
+  var fob = gv('fob');
+  var stops = readStops();
+
+  if (stops.length < 2) {
+    alertEl.textContent = '! Enter at least 2 stops with fuel prices.';
+    alertEl.style.display = 'block';
+    return;
+  }
+
+  for (var i = 0; i < stops.length - 1; i++) {
+    if (!stops[i].burn || !stops[i].land) {
+      alertEl.textContent = '! Stop ' + stops[i].code + ': enter burn and landing fuel for leg to next stop.';
+      alertEl.style.display = 'block';
+      return;
+    }
+  }
+
+  var base = buildBaseline(stops, fob);
+  if (!base) {
+    alertEl.textContent = '! Baseline is infeasible -- check burn and landing fuel values.';
+    alertEl.style.display = 'block';
+    return;
+  }
+
+  var opt = buildOptimized(stops, fob);
+  if (!opt) opt = base;
+
+  showResults(base, opt, stops);
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showResults(base, opt, stops) {
+  var baseCost = 0;
+  for (var i = 0; i < base.length; i++) baseCost += base[i].cost;
+  var optCost = 0;
+  for (var i = 0; i < opt.length; i++) optCost += opt[i].cost;
+  var savings = baseCost - optCost;
+
+  var banner = document.getElementById('strategy-banner');
+  banner.className = 'strategy-banner ' + (savings > 50 ? 'positive' : savings < -50 ? 'negative' : 'neutral');
+
+  setEl('r-savings', '$' + Math.round(Math.abs(savings)).toLocaleString());
+  document.getElementById('r-savings').className = 'sb-value ' + (savings > 50 ? 'green' : savings < -50 ? 'red' : 'amber');
+  setEl('r-savings-note', savings > 50 ? 'saved vs minimum-purchase baseline' : savings < -50 ? 'optimized costs more -- use baseline' : 'plans approximately equal');
+  setEl('r-base-tot', '$' + Math.round(baseCost).toLocaleString());
+  setEl('r-opt-tot',  '$' + Math.round(optCost).toLocaleString());
+
+  // Strategy moves
+  var movesEl = document.getElementById('strat-moves');
+  var movesParts = [];
+  for (var i = 0; i < opt.length; i++) {
+    var os = opt[i];
+    var bs = base[i];
+    var isLast = (i === opt.length - 1);
+    var badge, text;
+    var extraGal = Math.round(os.buyGal - bs.buyGal);
+
+    if (os.fee === 0 && bs.fee > 0) {
+      badge = 'waiver';
+      text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- fee waived (saves $' + Math.round(bs.fee).toLocaleString() + ')';
+    } else if (os.fee > 0) {
+      badge = 'fee';
+      text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
+    } else if (extraGal > 20 && !isLast) {
+      badge = 'tanker';
+      text = os.code + ': Tanker ' + extraGal + ' extra gal ($' + os.price.toFixed(2) + '/gal)';
+    } else {
+      badge = 'min';
+      text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (minimum needed)';
+    }
+    movesParts.push('<div class="strat-move"><span class="badge ' + badge + '">' + badge.toUpperCase() + '</span><span>' + text + '</span></div>');
+  }
+  movesEl.innerHTML = movesParts.join('');
+
+  renderCard('base-stops', base, stops, false);
+  renderCard('opt-stops',  opt,  stops, true);
+  setEl('base-grand-total', '$' + Math.round(baseCost).toLocaleString());
+  setEl('opt-grand-total',  '$' + Math.round(optCost).toLocaleString());
+}
+
+function renderCard(containerId, tripStops, stops, isOpt) {
+  var el = document.getElementById(containerId);
+  var parts = [];
+  for (var i = 0; i < tripStops.length; i++) {
+    var s = tripStops[i];
+    var st = stops[i];
+    var isLast = (i === tripStops.length - 1);
+    var hasW = st.waiver > 0;
+    var feeStr = s.fee > 0 ? '$' + Math.round(s.fee).toLocaleString() + ' !' : (hasW ? 'WAIVED' : 'N/A');
+    var feeClass = s.fee > 0 ? 'red' : 'green';
+
+    var html = '<div class="cmp-stop">';
+    html += '<div class="cmp-stop-hdr">' + s.code + (isLast ? ' -- Final Stop' : ' -- Stop ' + (i + 1)) + '</div>';
+    html += '<div class="row"><span class="rk">Pre-fuel on board</span><span class="rv">' + fmtL(s.preFuel) + '</span></div>';
+    html += '<div class="row"><span class="rk">Purchase</span><span class="rv ' + (isOpt ? 'blue' : '') + '">' + fmtB(s.buyLbs) + '</span></div>';
+    html += '<div class="row"><span class="rk">Fee</span><span class="rv ' + feeClass + '">' + feeStr + '</span></div>';
+    html += '<div class="row"><span class="rk">Depart with</span><span class="rv">' + fmtL(s.departLbs) + '</span></div>';
+    html += '<div class="row"><span class="rk">Fuel cost</span><span class="rv">' + fmtD(s.cost) + '</span></div>';
+
+    if (st.burn > 0) {
+      html += '<div class="row"><span class="rk">Burn to next</span><span class="rv">' + fmtL(st.burn) + '</span></div>';
+      if (isOpt && s.penaltyLbs > 1) {
+        html += '<div class="row"><span class="rk">Penalty burn</span><span class="rv red">+' + Math.round(s.penaltyLbs) + ' lbs / +' + Math.round(s.penaltyGal) + ' gal</span></div>';
+      }
+      html += '<div class="row"><span class="rk">Land with</span><span class="rv">' + fmtL(s.landLbs) + '</span></div>';
+    }
+    html += '</div>';
+    parts.push(html);
+  }
+  el.innerHTML = parts.join('');
+}
+
+function copyResults() {
+  var lines = ['=== FUELOPT MULTI-LEG RESULTS ===', ''];
+  lines.push('--- INPUTS ---');
+  lines.push('Starting FOB: ' + gv('fob') + ' lbs');
+  for (var i = 0; i < MAX_STOPS; i++) {
+    var price = gv('price-' + i);
+    if (!price) continue;
+    var code = gvs('apt-' + i) || String.fromCharCode(65 + i);
+    lines.push(code + ' Price: $' + price + '/gal  Fee: $' + gv('fee-' + i) + '  Waiver: ' + gv('waiver-' + i) + ' gal');
+    var burn = gv('burn-' + i);
+    if (burn) lines.push('  Leg burn: ' + burn + ' lbs  Land: ' + gv('land-' + i) + ' lbs  ETE: ' + gv('ete-' + i) + ' hrs  MaxExtra: ' + gv('maxextra-' + i) + ' lbs');
+  }
+  lines.push('');
+  lines.push('--- SUMMARY ---');
+  lines.push('Baseline Total:  ' + document.getElementById('r-base-tot').textContent);
+  lines.push('Optimized Total: ' + document.getElementById('r-opt-tot').textContent);
+  lines.push('Savings:         ' + document.getElementById('r-savings').textContent);
+  lines.push('');
+  lines.push('--- STRATEGY ---');
+  var moves = document.getElementById('strat-moves').querySelectorAll('.strat-move');
+  for (var mi = 0; mi < moves.length; mi++) lines.push(moves[mi].textContent.trim());
+  lines.push('');
+  lines.push('(Penalty rate: 0.005 gal/hr/lb x 6.75 lbs/gal)');
+
+  var text = lines.join('\n');
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(function() {
+      document.getElementById('copy-confirm').style.display = 'block';
+      setTimeout(function() { document.getElementById('copy-confirm').style.display = 'none'; }, 3000);
+    });
+  } else {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    document.getElementById('copy-confirm').style.display = 'block';
+    setTimeout(function() { document.getElementById('copy-confirm').style.display = 'none'; }, 3000);
+  }
+}
+</script>
+</body>
+</html>
