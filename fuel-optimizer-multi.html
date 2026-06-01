@@ -116,6 +116,7 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
   <div class="logo">FuelOpt Pro</div>
   <h1>Multi-Leg <em>Optimizer</em></h1>
   <div class="sub">2 to 5 leg optimization -- enter up to 6 stops, leave unused stops blank</div>
+  <button onclick="clearInputs()" style="margin-top:10px;background:none;border:1px solid var(--border2);border-radius:6px;font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);padding:6px 14px;cursor:pointer;">&#10005; Clear All Fields</button>
 </header>
 <div class="alert-box" id="alert-box"></div>
 <div class="fob-bar">
@@ -270,15 +271,51 @@ var PENALTY_RATE = 0.005;
 var POST_LAND    = 200;
 var MAX_STOPS    = 6;
 
-// LOAD TEST -- fires immediately, no button needed
+// ── Input persistence via localStorage ───────────────────────────────────────
+var SAVE_IDS = ['fob'];
+for (var _i = 0; _i < MAX_STOPS; _i++) {
+  SAVE_IDS.push('apt-'+_i,'price-'+_i,'fee-'+_i,'waiver-'+_i,
+                'burn-'+_i,'land-'+_i,'ete-'+_i,'maxextra-'+_i);
+}
+
+function saveInputs() {
+  try {
+    var data = {};
+    for (var i = 0; i < SAVE_IDS.length; i++) {
+      var el = document.getElementById(SAVE_IDS[i]);
+      if (el) data[SAVE_IDS[i]] = el.value;
+    }
+    localStorage.setItem('fuelopt_multi', JSON.stringify(data));
+  } catch(e) {}
+}
+
+function restoreInputs() {
+  try {
+    var raw = localStorage.getItem('fuelopt_multi');
+    if (!raw) return;
+    var data = JSON.parse(raw);
+    for (var i = 0; i < SAVE_IDS.length; i++) {
+      var el = document.getElementById(SAVE_IDS[i]);
+      if (el && data[SAVE_IDS[i]] !== undefined) el.value = data[SAVE_IDS[i]];
+    }
+  } catch(e) {}
+}
+
+function clearInputs() {
+  try { localStorage.removeItem('fuelopt_multi'); } catch(e) {}
+  for (var i = 0; i < SAVE_IDS.length; i++) {
+    var el = document.getElementById(SAVE_IDS[i]);
+    if (el) el.value = '';
+  }
+  document.getElementById('results').style.display = 'none';
+}
+
+// Attach save listener to all inputs
 window.onload = function() {
-  var el = document.getElementById('alert-box');
-  if (el) {
-    el.textContent = 'JS loaded OK -- tap Calculate to run';
-    el.style.display = 'block';
-    el.style.background = '#e6f7f1';
-    el.style.color = '#0d9e6e';
-    el.style.border = '1px solid #a7d7c5';
+  restoreInputs();
+  for (var i = 0; i < SAVE_IDS.length; i++) {
+    var el = document.getElementById(SAVE_IDS[i]);
+    if (el) el.addEventListener('change', saveInputs);
   }
 };
 
@@ -326,6 +363,9 @@ function evalTrip(stops, departures, fob) {
     var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
     if (dep < baselineDep - 1) return null;
     var buyLbs = Math.max(0, dep - preFuel);
+    // Snap trivially small purchases to zero -- anything under 10 lbs is rounding noise
+    if (buyLbs < 10) buyLbs = 0;
+    dep = preFuel + buyLbs; // recalculate departure based on snapped buy
     var buyGal = lbsToGal(buyLbs);
     var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver) ? s.fee : 0;
     var cost = buyGal * s.price + fee;
@@ -515,6 +555,9 @@ function showResults(base, opt, stops) {
     if (os.fee === 0 && bs.fee > 0) {
       badge = 'waiver';
       text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- fee waived (saves $' + Math.round(bs.fee).toLocaleString() + ')';
+    } else if (os.fee > 0 && os.buyLbs < 10) {
+      badge = 'fee';
+      text = os.code + ': Arrive self-sufficient -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
     } else if (os.fee > 0) {
       badge = 'fee';
       text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
