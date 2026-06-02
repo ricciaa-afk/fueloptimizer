@@ -395,7 +395,7 @@ function evalTrip(stops, departures, fob) {
     if (buyLbs < 10) buyLbs = 0;
     dep = preFuel + buyLbs; // recalculate departure based on snapped buy
     var buyGal = lbsToGal(buyLbs);
-    var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver) ? s.fee : 0;
+    var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver - 0.01) ? s.fee : 0;
     var cost = buyGal * s.price + fee;
     var r = {
       code: s.code, preFuel: preFuel, buyLbs: buyLbs, buyGal: buyGal,
@@ -499,7 +499,7 @@ function buildOptimized(stops, fob) {
 
       var buyLbs = Math.max(0, dep - preFuel);
       var buyGal = lbsToGal(buyLbs);
-      var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver) ? s.fee : 0;
+      var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver - 0.01) ? s.fee : 0;
       var cost = buyGal * s.price + fee;
 
       if (s.burn > 0) {
