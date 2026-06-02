@@ -684,13 +684,15 @@ function renderTriTable(base, smart, opt, stops) {
         '<td>' + fmtL(st.burn) + '</td>' +
         '<td>' + fmtL(st.burn) + '</td></tr>');
 
-      // Penalty burn -- 0 for base and smart, only opt has it
-      var penStr = op.penaltyLbs > 1 ?
+      // Penalty burn -- always 0 for min-buy baseline, but smart and opt can have it
+      var penStrSmart = sm.penaltyLbs > 1 ?
+        ('+' + Math.round(sm.penaltyLbs) + ' lbs / +' + Math.round(sm.penaltyGal) + ' gal') : '0';
+      var penStrOpt = op.penaltyLbs > 1 ?
         ('+' + Math.round(op.penaltyLbs) + ' lbs / +' + Math.round(op.penaltyGal) + ' gal') : '0';
       rows.push('<tr><td>Penalty burn</td>' +
         '<td class="td-muted">0</td>' +
-        '<td class="td-muted">0</td>' +
-        '<td class="' + (op.penaltyLbs > 1 ? 'td-red' : 'td-muted') + '">' + penStr + '</td></tr>');
+        '<td class="' + (sm.penaltyLbs > 1 ? 'td-red' : 'td-muted') + '">' + penStrSmart + '</td>' +
+        '<td class="' + (op.penaltyLbs > 1 ? 'td-red' : 'td-muted') + '">' + penStrOpt + '</td></tr>');
 
       rows.push('<tr><td>Land with</td>' +
         '<td>' + fmtL(b.landLbs) + '</td>' +
