@@ -419,6 +419,44 @@ function evalTrip(stops, departures, fob) {
   return result;
 }
 
+// Separate evaluator for fee-smart baseline -- fee always 0 since we always buy to waiver
+function evalFeeSmartTrip(stops, departures, fob) {
+  var result = [];
+  var preFuel = fob;
+  for (var i = 0; i < stops.length; i++) {
+    var s = stops[i];
+    var dep = Math.max(departures[i], preFuel);
+    var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
+    if (dep < baselineDep - 1) return null;
+    var buyLbs = Math.max(0, dep - preFuel);
+    if (buyLbs < 10) buyLbs = 0;
+    dep = preFuel + buyLbs;
+    var buyGal = lbsToGal(buyLbs);
+    // Fee is always 0 -- by definition we always buy at least to the waiver
+    var fee = 0;
+    var cost = buyGal * s.price + fee;
+    var r = {
+      code: s.code, preFuel: preFuel, buyLbs: buyLbs, buyGal: buyGal,
+      fee: fee, cost: cost, departLbs: dep, price: s.price,
+      waiver: s.waiver, feeAmt: s.fee, penaltyLbs: 0, penaltyGal: 0, landLbs: 0
+    };
+    if (s.burn > 0) {
+      var extra = Math.max(0, dep - baselineDep);
+      var penGal = PENALTY_RATE * s.ete * extra;
+      var penLbs = galToLbs(penGal);
+      var landLbs = dep - s.burn - penLbs;
+      if (landLbs < s.land - 1) return null;
+      r.penaltyLbs = penLbs;
+      r.penaltyGal = penGal;
+      r.landLbs = landLbs;
+      preFuel = landLbs - POST_LAND;
+      if (preFuel < 0) return null;
+    }
+    result.push(r);
+  }
+  return result;
+}
+
 function buildBaseline(stops, fob) {
   var deps = [];
   var pf = fob;
@@ -452,7 +490,7 @@ function buildFeeSmartBaseline(stops, fob) {
       pf = dep - s.burn - penLbs - POST_LAND;
     }
   }
-  return evalTrip(stops, deps, fob);
+  return evalFeeSmartTrip(stops, deps, fob);
 }
 
 function buildOptimized(stops, fob) {
@@ -606,9 +644,10 @@ function showResults(base, smart, opt, stops) {
     var bs = base[i];
     var isLast = (i === opt.length - 1);
     var badge, text;
-    var extraGal = Math.round(os.buyGal - bs.buyGal);
+    var buyingExtraForWaiver = os.fee === 0 && bs.fee > 0 && os.buyGal > bs.buyGal + 5;
+    var buyingExtraToTanker  = os.buyGal > bs.buyGal + 20 && os.fee === 0 && bs.fee === 0 && !isLast;
 
-    if (os.fee === 0 && bs.fee > 0) {
+    if (buyingExtraForWaiver) {
       badge = 'waiver';
       text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- fee waived (saves $' + Math.round(bs.fee).toLocaleString() + ')';
     } else if (os.fee > 0 && os.buyLbs < 10) {
@@ -617,9 +656,9 @@ function showResults(base, smart, opt, stops) {
     } else if (os.fee > 0) {
       badge = 'fee';
       text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
-    } else if (extraGal > 20 && !isLast) {
+    } else if (buyingExtraToTanker) {
       badge = 'tanker';
-      text = os.code + ': Tanker ' + extraGal + ' extra gal ($' + os.price.toFixed(2) + '/gal)';
+      text = os.code + ': Tanker ' + Math.round(os.buyGal - bs.buyGal) + ' extra gal ($' + os.price.toFixed(2) + '/gal)';
     } else {
       badge = 'min';
       text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (minimum needed)';
