@@ -644,20 +644,22 @@ function showResults(base, smart, opt, stops) {
     var bs = base[i];
     var isLast = (i === opt.length - 1);
     var badge, text;
-    var buyingExtraForWaiver = os.fee === 0 && bs.fee > 0 && os.buyGal > bs.buyGal + 5;
-    var buyingExtraToTanker  = os.buyGal > bs.buyGal + 20 && os.fee === 0 && bs.fee === 0 && !isLast;
+    var waiverGal = stops[i].waiver;
+    var aboveWaiver = waiverGal > 0 && os.buyGal > waiverGal + 10; // buying well above threshold
+    var atWaiver    = waiverGal > 0 && os.fee === 0 && bs.fee > 0 && !aboveWaiver; // buying near threshold to waive fee
+    var isTankering = os.buyGal > bs.buyGal + 20 && !isLast && (aboveWaiver || bs.fee === 0);
 
-    if (buyingExtraForWaiver) {
+    if (atWaiver) {
       badge = 'waiver';
       var extraForWaiver = Math.round(os.buyGal - bs.buyGal);
-      text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (+' + extraForWaiver + ' extra to waive $' + Math.round(bs.fee).toLocaleString() + ' fee)';
+      text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (+' + extraForWaiver + ' extra to waive $' + Math.round(stops[i].fee).toLocaleString() + ' fee)';
     } else if (os.fee > 0 && os.buyLbs < 10) {
       badge = 'fee';
       text = os.code + ': Arrive self-sufficient -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
     } else if (os.fee > 0) {
       badge = 'fee';
       text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
-    } else if (buyingExtraToTanker) {
+    } else if (isTankering) {
       badge = 'tanker';
       text = os.code + ': Tanker ' + Math.round(os.buyGal - bs.buyGal) + ' extra gal ($' + os.price.toFixed(2) + '/gal)';
     } else {
