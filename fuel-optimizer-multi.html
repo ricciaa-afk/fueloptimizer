@@ -646,13 +646,17 @@ function showResults(base, smart, opt, stops) {
     var badge, text;
     var waiverGal = stops[i].waiver;
     var aboveWaiver = waiverGal > 0 && os.buyGal > waiverGal + 10; // buying well above threshold
-    var atWaiver    = waiverGal > 0 && os.fee === 0 && bs.fee > 0 && !aboveWaiver; // buying near threshold to waive fee
+    var atWaiver    = waiverGal > 0 && os.fee === 0 && Math.abs(os.buyGal - waiverGal) <= 10; // buying at or near threshold
     var isTankering = os.buyGal > bs.buyGal + 20 && !isLast && (aboveWaiver || bs.fee === 0);
 
     if (atWaiver) {
       badge = 'waiver';
       var extraForWaiver = Math.round(os.buyGal - bs.buyGal);
-      text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (+' + extraForWaiver + ' extra to waive $' + Math.round(stops[i].fee).toLocaleString() + ' fee)';
+      if (bs.fee > 0) {
+        text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (+' + extraForWaiver + ' extra to waive $' + Math.round(stops[i].fee).toLocaleString() + ' fee)';
+      } else {
+        text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (at waiver threshold -- fee waived)';
+      }
     } else if (os.fee > 0 && os.buyLbs < 10) {
       badge = 'fee';
       text = os.code + ': Arrive self-sufficient -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
