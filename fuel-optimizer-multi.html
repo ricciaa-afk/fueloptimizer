@@ -440,9 +440,9 @@ function buildFeeSmartBaseline(stops, fob) {
   for (var i = 0; i < stops.length; i++) {
     var s = stops[i];
     var needed = (s.burn > 0) ? (s.burn + s.land) : s.land;
-    // Buy at least waiver threshold if there is one, or what's needed, whichever is more
-    var waiverLbs = (s.waiver > 0 && s.fee > 0) ? galToLbs(s.waiver) : 0;
-    var dep = Math.max(pf, needed, pf + waiverLbs);
+    // Exact waiver departure: pre-fuel + exactly waiver gal in lbs
+    var waiverDep = (s.waiver > 0 && s.fee > 0) ? (pf + galToLbs(s.waiver)) : 0;
+    var dep = Math.max(pf, needed, waiverDep);
     deps.push(dep);
     if (s.burn > 0) { pf = dep - s.burn - POST_LAND; }
   }
