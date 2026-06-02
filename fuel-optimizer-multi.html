@@ -649,7 +649,8 @@ function showResults(base, smart, opt, stops) {
 
     if (buyingExtraForWaiver) {
       badge = 'waiver';
-      text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- fee waived (saves $' + Math.round(bs.fee).toLocaleString() + ')';
+      var extraForWaiver = Math.round(os.buyGal - bs.buyGal);
+      text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (+' + extraForWaiver + ' extra to waive $' + Math.round(bs.fee).toLocaleString() + ' fee)';
     } else if (os.fee > 0 && os.buyLbs < 10) {
       badge = 'fee';
       text = os.code + ': Arrive self-sufficient -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
