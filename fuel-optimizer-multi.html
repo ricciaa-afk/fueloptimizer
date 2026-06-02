@@ -108,6 +108,25 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
 .cmp-card.opt .cmp-total .tv { color: var(--blue); }
 .btn-copy { width: 100%; background: var(--surface); color: var(--blue); border: 1.5px solid var(--blue); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; padding: 12px; cursor: pointer; margin-top: 8px; }
 .btn-copy:hover { background: var(--blue-lt); }
+/* Three-column comparison table */
+.tri-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 12px; font-size: 11px; }
+.tri-table th { padding: 8px 10px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; border-bottom: 2px solid var(--border); text-align: right; font-weight: 700; }
+.tri-table th:first-child { text-align: left; width: 30%; color: var(--muted); font-weight: 400; }
+.tri-table th.col-min  { background: var(--surface2); color: var(--muted); }
+.tri-table th.col-smart { background: var(--amber-lt); color: var(--amber); }
+.tri-table th.col-opt  { background: var(--blue-lt);  color: var(--blue); }
+.tri-table td { padding: 5px 10px; border-bottom: 1px solid #f0f2f5; text-align: right; vertical-align: baseline; }
+.tri-table td:first-child { text-align: left; color: var(--muted); font-size: 10px; }
+.tri-table tr:last-child td { border-bottom: none; }
+.tri-table .stop-row td { background: var(--surface2); font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 5px 10px; border-top: 1px solid var(--border); }
+.tri-table .total-row td { font-weight: 700; font-size: 13px; border-top: 2px solid var(--border); padding: 10px 10px; }
+.tri-table .total-row td.col-min  { background: var(--surface2); }
+.tri-table .total-row td.col-smart { background: var(--amber-lt); color: var(--amber); }
+.tri-table .total-row td.col-opt  { background: var(--blue-lt);  color: var(--blue); }
+.td-green { color: var(--green); font-weight: 600; }
+.td-red   { color: var(--red); }
+.td-blue  { color: var(--blue); font-weight: 600; }
+.td-muted { color: var(--muted); }
 </style>
 </head>
 <body>
@@ -248,17 +267,26 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
       <div class="strat-moves" id="strat-moves"></div>
     </div>
   </div>
-  <div class="cmp-wrap">
-    <div class="cmp-card">
-      <div class="cmp-head">// Baseline -- Minimum Purchase Each Stop</div>
-      <div id="base-stops"></div>
-      <div class="cmp-total"><span class="tk">Total Cost</span><span class="tv" id="base-grand-total">-</span></div>
-    </div>
-    <div class="cmp-card opt">
-      <div class="cmp-head">// Optimized -- Best Tankering Plan</div>
-      <div id="opt-stops"></div>
-      <div class="cmp-total"><span class="tk">Total Cost</span><span class="tv" id="opt-grand-total">-</span></div>
-    </div>
+  <div id="tri-wrap">
+    <table class="tri-table" id="tri-table">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="col-min">Min Buy</th>
+          <th class="col-smart">Waive Fees</th>
+          <th class="col-opt">Optimized</th>
+        </tr>
+      </thead>
+      <tbody id="tri-body"></tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td>Total Cost</td>
+          <td class="col-min"  id="tri-tot-min">-</td>
+          <td class="col-smart" id="tri-tot-smart">-</td>
+          <td class="col-opt"  id="tri-tot-opt">-</td>
+        </tr>
+      </tfoot>
+    </table>
   </div>
   <button class="btn-copy" onclick="copyResults()">&#128203; Copy Results</button>
   <div id="copy-confirm" style="display:none;font-size:11px;color:var(--green);text-align:center;margin-top:6px;">&#10004; Copied</div>
@@ -404,6 +432,23 @@ function buildBaseline(stops, fob) {
   return evalTrip(stops, deps, fob);
 }
 
+// Fee-smart baseline: at every stop buy at least the waiver threshold
+// (or more if the leg requires it). No tankering -- just always buy to waiver minimum.
+function buildFeeSmartBaseline(stops, fob) {
+  var deps = [];
+  var pf = fob;
+  for (var i = 0; i < stops.length; i++) {
+    var s = stops[i];
+    var needed = (s.burn > 0) ? (s.burn + s.land) : s.land;
+    // Buy at least waiver threshold if there is one, or what's needed, whichever is more
+    var waiverLbs = (s.waiver > 0 && s.fee > 0) ? galToLbs(s.waiver) : 0;
+    var dep = Math.max(pf, needed, pf + waiverLbs);
+    deps.push(dep);
+    if (s.burn > 0) { pf = dep - s.burn - POST_LAND; }
+  }
+  return evalTrip(stops, deps, fob);
+}
+
 function buildOptimized(stops, fob) {
   var n = stops.length;
   var memo = {};
@@ -518,17 +563,22 @@ function runOptimize() {
     return;
   }
 
+  var smart = buildFeeSmartBaseline(stops, fob);
+  if (!smart) smart = base;
+
   var opt = buildOptimized(stops, fob);
   if (!opt) opt = base;
 
-  showResults(base, opt, stops);
+  showResults(base, smart, opt, stops);
   document.getElementById('results').style.display = 'block';
   document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function showResults(base, opt, stops) {
+function showResults(base, smart, opt, stops) {
   var baseCost = 0;
   for (var i = 0; i < base.length; i++) baseCost += base[i].cost;
+  var smartCost = 0;
+  for (var i = 0; i < smart.length; i++) smartCost += smart[i].cost;
   var optCost = 0;
   for (var i = 0; i < opt.length; i++) optCost += opt[i].cost;
   var savings = baseCost - optCost;
@@ -572,42 +622,84 @@ function showResults(base, opt, stops) {
   }
   movesEl.innerHTML = movesParts.join('');
 
-  renderCard('base-stops', base, stops, false);
-  renderCard('opt-stops',  opt,  stops, true);
-  setEl('base-grand-total', '$' + Math.round(baseCost).toLocaleString());
-  setEl('opt-grand-total',  '$' + Math.round(optCost).toLocaleString());
+  // Three-column table
+  renderTriTable(base, smart, opt, stops);
+  setEl('tri-tot-min',   '$' + Math.round(baseCost).toLocaleString());
+  setEl('tri-tot-smart', '$' + Math.round(smartCost).toLocaleString());
+  setEl('tri-tot-opt',   '$' + Math.round(optCost).toLocaleString());
 }
 
-function renderCard(containerId, tripStops, stops, isOpt) {
-  var el = document.getElementById(containerId);
-  var parts = [];
-  for (var i = 0; i < tripStops.length; i++) {
-    var s = tripStops[i];
+function feeStr(s, hasW) {
+  return s.fee > 0 ? '$' + Math.round(s.fee).toLocaleString() + ' !' : (hasW ? 'WAIVED' : 'N/A');
+}
+function feeClass(s) { return s.fee > 0 ? 'td-red' : 'td-green'; }
+
+function renderTriTable(base, smart, opt, stops) {
+  var tbody = document.getElementById('tri-body');
+  var rows = [];
+
+  for (var i = 0; i < stops.length; i++) {
     var st = stops[i];
-    var isLast = (i === tripStops.length - 1);
+    var b = base[i], sm = smart[i], op = opt[i];
+    var isLast = (i === stops.length - 1);
     var hasW = st.waiver > 0;
-    var feeStr = s.fee > 0 ? '$' + Math.round(s.fee).toLocaleString() + ' !' : (hasW ? 'WAIVED' : 'N/A');
-    var feeClass = s.fee > 0 ? 'red' : 'green';
 
-    var html = '<div class="cmp-stop">';
-    html += '<div class="cmp-stop-hdr">' + s.code + (isLast ? ' -- Final Stop' : ' -- Stop ' + (i + 1)) + '</div>';
-    html += '<div class="row"><span class="rk">Pre-fuel on board</span><span class="rv">' + fmtL(s.preFuel) + '</span></div>';
-    html += '<div class="row"><span class="rk">Purchase</span><span class="rv ' + (isOpt ? 'blue' : '') + '">' + fmtB(s.buyLbs) + '</span></div>';
-    html += '<div class="row"><span class="rk">Fee</span><span class="rv ' + feeClass + '">' + feeStr + '</span></div>';
-    html += '<div class="row"><span class="rk">Depart with</span><span class="rv">' + fmtL(s.departLbs) + '</span></div>';
-    html += '<div class="row"><span class="rk">Fuel cost</span><span class="rv">' + fmtD(s.cost) + '</span></div>';
+    // Stop header row
+    rows.push('<tr class="stop-row"><td colspan="4">' + st.code + (isLast ? ' -- Final Stop' : ' -- Stop ' + (i+1)) + '</td></tr>');
 
+    // Pre-fuel
+    rows.push('<tr><td>Pre-fuel on board</td>' +
+      '<td>' + fmtL(b.preFuel) + '</td>' +
+      '<td>' + fmtL(sm.preFuel) + '</td>' +
+      '<td class="td-blue">' + fmtL(op.preFuel) + '</td></tr>');
+
+    // Purchase
+    rows.push('<tr><td>Purchase</td>' +
+      '<td>' + fmtB(b.buyLbs) + '</td>' +
+      '<td>' + fmtB(sm.buyLbs) + '</td>' +
+      '<td class="td-blue">' + fmtB(op.buyLbs) + '</td></tr>');
+
+    // Fee
+    rows.push('<tr><td>Fee</td>' +
+      '<td class="' + feeClass(b) + '">' + feeStr(b, hasW) + '</td>' +
+      '<td class="' + feeClass(sm) + '">' + feeStr(sm, hasW) + '</td>' +
+      '<td class="' + feeClass(op) + '">' + feeStr(op, hasW) + '</td></tr>');
+
+    // Depart with
+    rows.push('<tr><td>Depart with</td>' +
+      '<td>' + fmtL(b.departLbs) + '</td>' +
+      '<td>' + fmtL(sm.departLbs) + '</td>' +
+      '<td class="td-blue">' + fmtL(op.departLbs) + '</td></tr>');
+
+    // Fuel cost
+    rows.push('<tr><td>Fuel cost</td>' +
+      '<td>' + fmtD(b.cost) + '</td>' +
+      '<td>' + fmtD(sm.cost) + '</td>' +
+      '<td class="td-blue">' + fmtD(op.cost) + '</td></tr>');
+
+    // Leg rows (burn, penalty, land) -- only if not last stop
     if (st.burn > 0) {
-      html += '<div class="row"><span class="rk">Burn to next</span><span class="rv">' + fmtL(st.burn) + '</span></div>';
-      if (isOpt && s.penaltyLbs > 1) {
-        html += '<div class="row"><span class="rk">Penalty burn</span><span class="rv red">+' + Math.round(s.penaltyLbs) + ' lbs / +' + Math.round(s.penaltyGal) + ' gal</span></div>';
-      }
-      html += '<div class="row"><span class="rk">Land with</span><span class="rv">' + fmtL(s.landLbs) + '</span></div>';
+      rows.push('<tr><td>Burn to next</td>' +
+        '<td>' + fmtL(st.burn) + '</td>' +
+        '<td>' + fmtL(st.burn) + '</td>' +
+        '<td>' + fmtL(st.burn) + '</td></tr>');
+
+      // Penalty burn -- 0 for base and smart, only opt has it
+      var penStr = op.penaltyLbs > 1 ?
+        ('+' + Math.round(op.penaltyLbs) + ' lbs / +' + Math.round(op.penaltyGal) + ' gal') : '0';
+      rows.push('<tr><td>Penalty burn</td>' +
+        '<td class="td-muted">0</td>' +
+        '<td class="td-muted">0</td>' +
+        '<td class="' + (op.penaltyLbs > 1 ? 'td-red' : 'td-muted') + '">' + penStr + '</td></tr>');
+
+      rows.push('<tr><td>Land with</td>' +
+        '<td>' + fmtL(b.landLbs) + '</td>' +
+        '<td>' + fmtL(sm.landLbs) + '</td>' +
+        '<td>' + fmtL(op.landLbs) + '</td></tr>');
     }
-    html += '</div>';
-    parts.push(html);
   }
-  el.innerHTML = parts.join('');
+
+  tbody.innerHTML = rows.join('');
 }
 
 function copyResults() {
@@ -624,9 +716,10 @@ function copyResults() {
   }
   lines.push('');
   lines.push('--- SUMMARY ---');
-  lines.push('Baseline Total:  ' + document.getElementById('r-base-tot').textContent);
-  lines.push('Optimized Total: ' + document.getElementById('r-opt-tot').textContent);
-  lines.push('Savings:         ' + document.getElementById('r-savings').textContent);
+  lines.push('Min Buy Total:     ' + document.getElementById('tri-tot-min').textContent);
+  lines.push('Waive Fees Total:  ' + document.getElementById('tri-tot-smart').textContent);
+  lines.push('Optimized Total:   ' + document.getElementById('tri-tot-opt').textContent);
+  lines.push('Savings vs Min Buy: ' + document.getElementById('r-savings').textContent);
   lines.push('');
   lines.push('--- STRATEGY ---');
   var moves = document.getElementById('strat-moves').querySelectorAll('.strat-move');
