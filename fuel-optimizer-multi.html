@@ -443,8 +443,14 @@ function buildFeeSmartBaseline(stops, fob) {
     // Exact waiver departure: pre-fuel + exactly waiver gal in lbs
     var waiverDep = (s.waiver > 0 && s.fee > 0) ? (pf + galToLbs(s.waiver)) : 0;
     var dep = Math.max(pf, needed, waiverDep);
+    // Round to whole lbs to prevent floating point drift across legs
+    dep = Math.round(dep);
     deps.push(dep);
-    if (s.burn > 0) { pf = dep - s.burn - POST_LAND; }
+    if (s.burn > 0) {
+      var extra = Math.max(0, dep - needed);
+      var penLbs = galToLbs(PENALTY_RATE * s.ete * extra);
+      pf = dep - s.burn - penLbs - POST_LAND;
+    }
   }
   return evalTrip(stops, deps, fob);
 }
