@@ -389,11 +389,9 @@ function evalTrip(stops, departures, fob) {
     var s = stops[i];
     var dep = Math.max(departures[i], preFuel);
     var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
-    if (dep < baselineDep - 1) return null;
+    if (dep < baselineDep - 5) return null;
+    if (dep < baselineDep) dep = Math.max(dep, baselineDep);
     var buyLbs = Math.max(0, dep - preFuel);
-    // Snap trivially small purchases to zero -- anything under 10 lbs is rounding noise
-    if (buyLbs < 10) buyLbs = 0;
-    dep = preFuel + buyLbs; // recalculate departure based on snapped buy
     var buyGal = lbsToGal(buyLbs);
     var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver - 0.01) ? s.fee : 0;
     var cost = buyGal * s.price + fee;
@@ -499,9 +497,12 @@ function buildOptimized(stops, fob) {
 
   var solve = function(idx, preFuel) {
     if (idx >= n) return { cost: 0, deps: [] };
-    var band = Math.round(preFuel / 25);
+    // Use fine band (5 lbs) when next stop has waiver to avoid caching bad results
+    // that block exact waiver-targeting solutions. Use coarse band (25 lbs) otherwise.
+    var nextHasWaiver = (idx < n - 1 && stops[idx + 1].waiver > 0 && stops[idx + 1].fee > 0);
+    var bandSize = nextHasWaiver ? 5 : 25;
+    var band = Math.round(preFuel / bandSize);
     var key = idx + '_' + band;
-    // Skip memo for last stop -- band quantization causes exact waiver values to be missed
     if (idx < n - 1 && memo[key]) return memo[key];
 
     var s = stops[idx];
@@ -523,6 +524,9 @@ function buildOptimized(stops, fob) {
     // Add exact waiver threshold for THIS stop
     if (s.waiver > 0 && s.fee > 0) {
       addCand(preFuel + galToLbs(s.waiver));
+      // Also sweep above waiver threshold to find tanker+waiver combos
+      var waiverBase = preFuel + galToLbs(s.waiver);
+      for (var dw = waiverBase; dw <= maxDep; dw += 50) addCand(dw);
     }
 
     // Add departure that lets NEXT stop buy exactly its waiver amount
@@ -535,7 +539,6 @@ function buildOptimized(stops, fob) {
         var waiverBuyLbs  = galToLbs(sNext.waiver);
         var pfNeededNext  = Math.max(nextDepNeeded - waiverBuyLbs, 0);
         // Work backwards: pfNeededNext = dep - s.burn - penalty - POST_LAND
-        // Approximate (ignore penalty for initial estimate, then iterate)
         var depEst = pfNeededNext + s.burn + POST_LAND;
         for (var iter = 0; iter < 5; iter++) {
           var extraEst = Math.max(0, depEst - baselineDep);
@@ -544,6 +547,14 @@ function buildOptimized(stops, fob) {
         }
         if (depEst >= baselineDep && depEst <= maxDep) {
           addCand(depEst);
+        }
+        // Also try: current waiver + enough to hit next waiver
+        // For when both stops have waivers
+        if (s.waiver > 0 && s.fee > 0) {
+          var depEstFromWaiver = Math.max(depEst, preFuel + galToLbs(s.waiver));
+          if (depEstFromWaiver >= baselineDep && depEstFromWaiver <= maxDep) {
+            addCand(depEstFromWaiver);
+          }
         }
       }
     }
@@ -681,7 +692,7 @@ function showResults(base, smart, opt, stops) {
       } else {
         text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (at waiver threshold -- fee waived)';
       }
-    } else if (os.fee > 0 && os.buyLbs < 10) {
+    } else if (os.fee > 0 && os.buyGal < 1) {
       badge = 'fee';
       text = os.code + ': Arrive self-sufficient -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
     } else if (os.fee > 0) {
