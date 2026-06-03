@@ -501,7 +501,8 @@ function buildOptimized(stops, fob) {
     if (idx >= n) return { cost: 0, deps: [] };
     var band = Math.round(preFuel / 25);
     var key = idx + '_' + band;
-    if (memo[key]) return memo[key];
+    // Skip memo for last stop -- band quantization causes exact waiver values to be missed
+    if (idx < n - 1 && memo[key]) return memo[key];
 
     var s = stops[idx];
     var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
@@ -519,9 +520,32 @@ function buildOptimized(stops, fob) {
     for (var d = baselineDep; d <= maxDep; d += 50) addCand(d);
     addCand(maxDep);
 
-    // Add exact waiver threshold -- stored as exact float, not rounded
+    // Add exact waiver threshold for THIS stop
     if (s.waiver > 0 && s.fee > 0) {
-      addCand(preFuel + galToLbs(s.waiver)); // exact: buy precisely waiver gal
+      addCand(preFuel + galToLbs(s.waiver));
+    }
+
+    // Add departure that lets NEXT stop buy exactly its waiver amount
+    // This is the key for finding tanker-to-waiver solutions
+    if (idx < n - 1) {
+      var sNext = stops[idx + 1];
+      if (sNext.waiver > 0 && sNext.fee > 0 && s.burn > 0) {
+        // pre-fuel needed at next stop = sNext departure - sNext waiver lbs
+        var nextDepNeeded = sNext.burn + sNext.land; // minimum next departure
+        var waiverBuyLbs  = galToLbs(sNext.waiver);
+        var pfNeededNext  = Math.max(nextDepNeeded - waiverBuyLbs, 0);
+        // Work backwards: pfNeededNext = dep - s.burn - penalty - POST_LAND
+        // Approximate (ignore penalty for initial estimate, then iterate)
+        var depEst = pfNeededNext + s.burn + POST_LAND;
+        for (var iter = 0; iter < 5; iter++) {
+          var extraEst = Math.max(0, depEst - baselineDep);
+          var penEst   = galToLbs(PENALTY_RATE * s.ete * extraEst);
+          depEst = pfNeededNext + s.burn + POST_LAND + penEst;
+        }
+        if (depEst >= baselineDep && depEst <= maxDep) {
+          addCand(depEst);
+        }
+      }
     }
 
     // Sort candidates
@@ -561,7 +585,7 @@ function buildOptimized(stops, fob) {
     }
 
     var res = { cost: bestCost, deps: bestDeps || [] };
-    memo[key] = res;
+    if (idx < n - 1) memo[key] = res;
     return res;
   }
 
