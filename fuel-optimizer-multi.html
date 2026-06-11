@@ -677,14 +677,29 @@ function showResults(base, smart, opt, stops) {
   for (var i = 0; i < opt.length; i++) {
     var os = opt[i];
     var bs = base[i];
+    var st = stops[i];
+    // A stop is the "final destination" if it has no burn data -- it's just a fueling stop at journey's end
+    var isFinalDest = (st.burn === 0);
     var isLast = (i === opt.length - 1);
     var badge, text;
-    var waiverGal = stops[i].waiver;
-    var aboveWaiver = waiverGal > 0 && os.buyGal > waiverGal + 10; // buying well above threshold
-    var atWaiver    = waiverGal > 0 && os.fee === 0 && Math.abs(os.buyGal - waiverGal) <= 10; // buying at or near threshold
-    var isTankering = os.buyGal > bs.buyGal + 20 && !isLast && (aboveWaiver || bs.fee === 0);
+    var waiverGal = st.waiver;
+    var aboveWaiver = waiverGal > 0 && os.buyGal > waiverGal + 10;
+    var atWaiver    = waiverGal > 0 && os.fee === 0 && Math.abs(os.buyGal - waiverGal) <= 10;
+    var isTankering = os.buyGal > bs.buyGal + 20 && !isFinalDest && !isLast && (aboveWaiver || bs.fee === 0);
 
-    if (atWaiver) {
+    if (isFinalDest) {
+      // Final destination -- just describe what's being bought, no tanker/waiver/fee framing
+      if (os.buyGal < 1) {
+        badge = 'min';
+        text = os.code + ': Arrive with sufficient fuel -- no purchase needed';
+      } else if (os.fee > 0) {
+        badge = 'fee';
+        text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal at final stop -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
+      } else {
+        badge = 'min';
+        text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal at final stop';
+      }
+    } else if (atWaiver) {
       badge = 'waiver';
       var extraForWaiver = Math.round(os.buyGal - bs.buyGal);
       if (bs.fee > 0) {
@@ -729,10 +744,11 @@ function renderTriTable(base, smart, opt, stops) {
     var st = stops[i];
     var b = base[i], sm = smart[i], op = opt[i];
     var isLast = (i === stops.length - 1);
+    var isFinalDestRow = (st.burn === 0);
     var hasW = st.waiver > 0;
 
     // Stop header row
-    rows.push('<tr class="stop-row"><td colspan="4">' + st.code + (isLast ? ' -- Final Stop' : ' -- Stop ' + (i+1)) + '</td></tr>');
+    rows.push('<tr class="stop-row"><td colspan="4">' + st.code + (isFinalDestRow ? ' -- Final Stop' : ' -- Stop ' + (i+1)) + '</td></tr>');
 
     // Pre-fuel
     rows.push('<tr><td>Pre-fuel on board</td>' +
