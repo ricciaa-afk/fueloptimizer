@@ -127,6 +127,18 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
 .td-red   { color: var(--red); }
 .td-blue  { color: var(--blue); font-weight: 600; }
 .td-muted { color: var(--muted); }
+/* Actual fuel table */
+.actual-hint { font-size: 11px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
+.actual-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 8px; font-size: 11px; }
+.actual-table th { padding: 8px 10px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; border-bottom: 2px solid var(--border); text-align: right; font-weight: 700; color: var(--muted); background: var(--surface2); }
+.actual-table th:first-child { text-align: left; }
+.actual-table td { padding: 6px 10px; border-bottom: 1px solid #f0f2f5; text-align: right; vertical-align: middle; }
+.actual-table td:first-child { text-align: left; color: var(--muted); font-size: 10px; font-weight: 600; }
+.actual-table tr:last-child td { border-bottom: none; }
+.actual-table input { width: 70px; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: 'Inter', sans-serif; font-size: 12px; padding: 5px 8px; text-align: right; -moz-appearance: textfield; }
+.actual-table input::-webkit-outer-spin-button, .actual-table input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.actual-table input:focus { border-color: var(--blue); outline: none; box-shadow: 0 0 0 2px rgba(26,110,245,0.12); }
+.actual-table .total-row td { font-weight: 700; font-size: 13px; border-top: 2px solid var(--border); padding: 10px; background: var(--surface2); }
 </style>
 </head>
 <body>
@@ -288,6 +300,33 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
       </tfoot>
     </table>
   </div>
+
+  <div class="results-head">Actual Fuel Purchased</div>
+  <div class="actual-hint">After your trip, enter what you actually bought at each stop to see your real total vs the plan.</div>
+  <table class="actual-table" id="actual-table">
+    <thead>
+      <tr>
+        <th>Stop</th>
+        <th>Planned</th>
+        <th>Actual (gal)</th>
+        <th>Fee</th>
+        <th>Cost</th>
+      </tr>
+    </thead>
+    <tbody id="actual-body"></tbody>
+    <tfoot>
+      <tr class="total-row">
+        <td colspan="4">Actual Total</td>
+        <td id="actual-total">-</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="4">Actual vs Baseline Savings</td>
+        <td id="actual-savings">-</td>
+      </tr>
+    </tfoot>
+  </table>
+  <button class="btn-copy" onclick="recalcActual()">&#8635; Recalculate Actual</button>
+
   <button class="btn-copy" onclick="copyResults()">&#128203; Copy Results</button>
   <div id="copy-confirm" style="display:none;font-size:11px;color:var(--green);text-align:center;margin-top:6px;">&#10004; Copied</div>
 </div>
@@ -298,6 +337,9 @@ var DENSITY      = 6.75;
 var PENALTY_RATE = 0.005;
 var POST_LAND    = 200;
 var MAX_STOPS    = 6;
+
+// Global state for "Actual Fuel" recalculation
+var lastOpt = null, lastStops = null, lastBaseCost = 0;
 
 // ── Input persistence via localStorage ───────────────────────────────────────
 var SAVE_IDS = ['fob'];
@@ -729,6 +771,53 @@ function showResults(base, smart, opt, stops) {
   setEl('tri-tot-min',   '$' + Math.round(baseCost).toLocaleString());
   setEl('tri-tot-smart', '$' + Math.round(smartCost).toLocaleString());
   setEl('tri-tot-opt',   '$' + Math.round(optCost).toLocaleString());
+
+  // Store state for "Actual Fuel" recalculation, then render that table
+  lastOpt = opt;
+  lastStops = stops;
+  lastBaseCost = baseCost;
+  renderActualTable(opt, stops);
+}
+
+function renderActualTable(opt, stops) {
+  var tbody = document.getElementById('actual-body');
+  var rows = [];
+  for (var i = 0; i < opt.length; i++) {
+    var os = opt[i];
+    var planGal = Math.round(os.buyGal * 10) / 10;
+    rows.push('<tr>' +
+      '<td>' + os.code + '</td>' +
+      '<td>' + planGal + ' gal</td>' +
+      '<td><input type="number" id="actual-gal-' + i + '" step="1" value="' + planGal + '" oninput="recalcActual()"></td>' +
+      '<td id="actual-fee-' + i + '">-</td>' +
+      '<td id="actual-cost-' + i + '">-</td>' +
+      '</tr>');
+  }
+  tbody.innerHTML = rows.join('');
+  recalcActual();
+}
+
+function recalcActual() {
+  if (!lastOpt || !lastStops) return;
+  var total = 0;
+  for (var i = 0; i < lastOpt.length; i++) {
+    var st = lastStops[i];
+    var inputEl = document.getElementById('actual-gal-' + i);
+    if (!inputEl) continue;
+    var actualGal = parseFloat(inputEl.value) || 0;
+    var fee = (st.waiver > 0 && st.fee > 0 && actualGal < st.waiver - 0.01) ? st.fee : 0;
+    var cost = actualGal * st.price + fee;
+    total += cost;
+    setEl('actual-fee-' + i, fee > 0 ? '$' + Math.round(fee).toLocaleString() : (st.waiver > 0 ? 'WAIVED' : 'N/A'));
+    var feeEl = document.getElementById('actual-fee-' + i);
+    if (feeEl) feeEl.className = fee > 0 ? 'td-red' : 'td-green';
+    setEl('actual-cost-' + i, '$' + Math.round(cost).toLocaleString());
+  }
+  setEl('actual-total', '$' + Math.round(total).toLocaleString());
+  var savings = lastBaseCost - total;
+  var savEl = document.getElementById('actual-savings');
+  savEl.textContent = (savings >= 0 ? '$' + Math.round(savings).toLocaleString() + ' saved' : '$' + Math.round(Math.abs(savings)).toLocaleString() + ' more than baseline');
+  savEl.className = savings >= 0 ? 'td-green' : 'td-red';
 }
 
 function feeStr(s, hasW) {
@@ -826,6 +915,23 @@ function copyResults() {
   lines.push('Optimized Total:   ' + document.getElementById('tri-tot-opt').textContent);
   lines.push('Savings vs Min Buy: ' + document.getElementById('r-savings').textContent);
   lines.push('');
+  var actualTotalEl = document.getElementById('actual-total');
+  if (actualTotalEl && actualTotalEl.textContent !== '-') {
+    lines.push('--- ACTUAL FUEL PURCHASED ---');
+    var actualRows = document.getElementById('actual-body').querySelectorAll('tr');
+    for (var ai = 0; ai < actualRows.length; ai++) {
+      var cells = actualRows[ai].querySelectorAll('td');
+      var code = cells[0].textContent.trim();
+      var inputEl = cells[2].querySelector('input');
+      var actualGal = inputEl ? inputEl.value : '0';
+      var fee = cells[3].textContent.trim();
+      var cost = cells[4].textContent.trim();
+      lines.push(code + ': ' + actualGal + ' gal  Fee: ' + fee + '  Cost: ' + cost);
+    }
+    lines.push('Actual Total:        ' + actualTotalEl.textContent);
+    lines.push('Actual vs Baseline:  ' + document.getElementById('actual-savings').textContent);
+    lines.push('');
+  }
   lines.push('--- STRATEGY ---');
   var moves = document.getElementById('strat-moves').querySelectorAll('.strat-move');
   for (var mi = 0; mi < moves.length; mi++) lines.push(moves[mi].textContent.trim());
