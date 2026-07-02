@@ -127,7 +127,10 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
 .td-red   { color: var(--red); }
 .td-blue  { color: var(--blue); font-weight: 600; }
 .td-muted { color: var(--muted); }
-/* Actual fuel table */
+/* Summary line below tri-table for screenshots */
+.tri-summary { font-size: 11px; color: var(--muted); padding: 8px 4px 4px; line-height: 1.8; }
+.tri-summary strong { color: var(--text); }
+.tri-summary .sav-highlight { color: var(--green); font-weight: 700; }
 .actual-hint { font-size: 11px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
 .actual-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 8px; font-size: 11px; }
 .actual-table th { padding: 8px 10px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; border-bottom: 2px solid var(--border); text-align: right; font-weight: 700; color: var(--muted); background: var(--surface2); }
@@ -299,6 +302,8 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
         </tr>
       </tfoot>
     </table>
+    <!-- Summary line for screenshots -->
+    <div class="tri-summary" id="tri-summary"></div>
   </div>
 
   <div class="results-head">Actual Fuel Purchased</div>
@@ -315,13 +320,28 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
     </thead>
     <tbody id="actual-body"></tbody>
     <tfoot>
+      <tr style="border-top:1px solid var(--border);">
+        <td colspan="5" style="padding:8px 10px;">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;font-size:11px;">
+            <span style="color:var(--muted);">Final landing fuel:</span>
+            <span>Planned <strong id="planned-land-lbs">-</strong> lbs</span>
+            <span>Actual <input type="number" id="actual-land-lbs" step="10" style="width:80px;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);" oninput="recalcActual()"> lbs</span>
+            <span>Replacement cost <input type="number" id="replacement-cost" step="0.01" style="width:70px;font-size:12px;padding:4px 6px;border:1px solid var(--border);border-radius:4px;background:var(--surface2);" oninput="recalcActual()" placeholder="$/gal"> $/gal</span>
+          </div>
+          <div id="landing-delta-row" style="margin-top:6px;font-size:11px;color:var(--muted);"></div>
+        </td>
+      </tr>
       <tr class="total-row">
-        <td colspan="4">Actual Total</td>
+        <td colspan="4">Actual Total (incl. landing adjustment)</td>
         <td id="actual-total">-</td>
       </tr>
       <tr class="total-row">
         <td colspan="4">Actual vs Baseline Savings</td>
         <td id="actual-savings">-</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="4">Actual vs Planned (Optimized)</td>
+        <td id="actual-vs-planned">-</td>
       </tr>
     </tfoot>
   </table>
@@ -339,7 +359,7 @@ var POST_LAND    = 200;
 var MAX_STOPS    = 6;
 
 // Global state for "Actual Fuel" recalculation
-var lastOpt = null, lastStops = null, lastBaseCost = 0;
+var lastOpt = null, lastStops = null, lastBaseCost = 0, lastOptCost = 0;
 
 // ── Input persistence via localStorage ───────────────────────────────────────
 var SAVE_IDS = ['fob'];
@@ -776,6 +796,41 @@ function showResults(base, smart, opt, stops) {
   lastOpt = opt;
   lastStops = stops;
   lastBaseCost = baseCost;
+  lastOptCost = optCost;
+
+  // Populate summary line below tri-table (Change 1)
+  var summaryEl = document.getElementById('tri-summary');
+  var savVsMin = baseCost - optCost;
+  summaryEl.innerHTML =
+    '<strong>Min Buy:</strong> $' + Math.round(baseCost).toLocaleString() +
+    ' &nbsp;|&nbsp; <strong>Waive Fees:</strong> $' + Math.round(smartCost).toLocaleString() +
+    ' &nbsp;|&nbsp; <strong>Optimized:</strong> $' + Math.round(optCost).toLocaleString() +
+    ' &nbsp;&nbsp; <span class="sav-highlight">Savings vs Min Buy: $' + Math.round(savVsMin).toLocaleString() + '</span>';
+
+  // Set up landing fuel section (Change 2)
+  // Find last stop with burn data -- planned landing fuel = that stop's land value
+  var lastBurnIdx = -1;
+  for (var li = 0; li < stops.length; li++) { if (stops[li].burn > 0) lastBurnIdx = li; }
+  var plannedLandLbs = lastBurnIdx >= 0 ? stops[lastBurnIdx].land : 0;
+  setEl('planned-land-lbs', Math.round(plannedLandLbs).toLocaleString());
+
+  // Default actual landing to planned
+  var actualLandEl = document.getElementById('actual-land-lbs');
+  if (actualLandEl && !actualLandEl.value) actualLandEl.value = Math.round(plannedLandLbs);
+
+  // Find replacement cost: price at the stop AFTER the last burn stop
+  var replacementIdx = lastBurnIdx + 1;
+  var replacementPrice = 0;
+  if (replacementIdx < MAX_STOPS) {
+    replacementPrice = gv('price-' + replacementIdx);
+  }
+  var replacementEl = document.getElementById('replacement-cost');
+  if (replacementEl && !replacementEl.value && replacementPrice > 0) {
+    replacementEl.value = replacementPrice;
+  } else if (replacementEl && !replacementEl.value) {
+    replacementEl.placeholder = 'enter $/gal';
+  }
+
   renderActualTable(opt, stops);
 }
 
@@ -813,11 +868,64 @@ function recalcActual() {
     if (feeEl) feeEl.className = fee > 0 ? 'td-red' : 'td-green';
     setEl('actual-cost-' + i, '$' + Math.round(cost).toLocaleString());
   }
-  setEl('actual-total', '$' + Math.round(total).toLocaleString());
-  var savings = lastBaseCost - total;
+
+  // Landing fuel delta (Change 2)
+  var landingAdj = 0;
+  var actualLandEl = document.getElementById('actual-land-lbs');
+  var replacementEl = document.getElementById('replacement-cost');
+  var plannedLandEl = document.getElementById('planned-land-lbs');
+  var deltaRowEl = document.getElementById('landing-delta-row');
+
+  if (actualLandEl && replacementEl && plannedLandEl) {
+    var plannedLbs = parseFloat(plannedLandEl.textContent.replace(/,/g,'')) || 0;
+    var actualLbs  = parseFloat(actualLandEl.value) || 0;
+    var repPrice   = parseFloat(replacementEl.value) || 0;
+    if (actualLbs > 0 && repPrice > 0) {
+      var deltaLbs = actualLbs - plannedLbs; // positive = landed with more
+      var deltaGal = deltaLbs / DENSITY;
+      var adjCost  = deltaGal * repPrice; // positive = credit (less to buy), negative = extra cost
+      landingAdj = -adjCost; // subtract credit from total (or add cost)
+      var adjAmt = Math.abs(Math.round(adjCost));
+      if (deltaLbs > 0) {
+        deltaRowEl.innerHTML = 'Landed <strong>' + Math.round(deltaLbs) + ' lbs (' + Math.round(Math.abs(deltaGal)) + ' gal) above plan</strong> -- credit of $' + adjAmt + ' at $' + repPrice + '/gal replacement rate';
+        deltaRowEl.style.color = 'var(--green)';
+      } else if (deltaLbs < 0) {
+        deltaRowEl.innerHTML = 'Landed <strong>' + Math.round(Math.abs(deltaLbs)) + ' lbs (' + Math.round(Math.abs(deltaGal)) + ' gal) below plan</strong> -- additional cost of $' + adjAmt + ' at $' + repPrice + '/gal replacement rate';
+        deltaRowEl.style.color = 'var(--red)';
+      } else {
+        deltaRowEl.innerHTML = 'Landed exactly as planned -- no adjustment needed';
+        deltaRowEl.style.color = 'var(--muted)';
+      }
+    } else {
+      deltaRowEl.innerHTML = repPrice === 0 ? 'Enter replacement cost $/gal to calculate landing adjustment' : '';
+      deltaRowEl.style.color = 'var(--muted)';
+    }
+  }
+
+  var adjustedTotal = total + landingAdj;
+  setEl('actual-total', '$' + Math.round(adjustedTotal).toLocaleString());
+
+  // Actual vs baseline (Change 3 - savings)
+  var savings = lastBaseCost - adjustedTotal;
   var savEl = document.getElementById('actual-savings');
-  savEl.textContent = (savings >= 0 ? '$' + Math.round(savings).toLocaleString() + ' saved' : '$' + Math.round(Math.abs(savings)).toLocaleString() + ' more than baseline');
+  savEl.textContent = savings >= 0 ?
+    '$' + Math.round(savings).toLocaleString() + ' saved' :
+    '$' + Math.round(Math.abs(savings)).toLocaleString() + ' more than baseline';
   savEl.className = savings >= 0 ? 'td-green' : 'td-red';
+
+  // Actual vs planned optimized (Change 3 - delta to plan)
+  var vsPlan = adjustedTotal - lastOptCost;
+  var vpEl = document.getElementById('actual-vs-planned');
+  if (vsPlan > 5) {
+    vpEl.textContent = '$' + Math.round(vsPlan).toLocaleString() + ' over plan';
+    vpEl.className = 'td-red';
+  } else if (vsPlan < -5) {
+    vpEl.textContent = '$' + Math.round(Math.abs(vsPlan)).toLocaleString() + ' under plan';
+    vpEl.className = 'td-green';
+  } else {
+    vpEl.textContent = 'On plan';
+    vpEl.className = 'td-green';
+  }
 }
 
 function feeStr(s, hasW) {
@@ -930,6 +1038,10 @@ function copyResults() {
     }
     lines.push('Actual Total:        ' + actualTotalEl.textContent);
     lines.push('Actual vs Baseline:  ' + document.getElementById('actual-savings').textContent);
+    var vpEl = document.getElementById('actual-vs-planned');
+    if (vpEl) lines.push('Actual vs Planned:   ' + vpEl.textContent);
+    var deltaEl = document.getElementById('landing-delta-row');
+    if (deltaEl && deltaEl.textContent.trim()) lines.push('Landing adjustment:  ' + deltaEl.textContent.trim());
     lines.push('');
   }
   lines.push('--- STRATEGY ---');
