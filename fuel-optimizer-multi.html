@@ -429,14 +429,18 @@ function readStops() {
   for (var i = 0; i < MAX_STOPS; i++) {
     var price = gv('price-' + i);
     if (!price) continue;
+    var burn = gv('burn-' + i);
+    var land = gv('land-' + i);
+    // A stop with price but no burn AND no land is a replacement-cost-only entry -- skip it
+    if (!burn && !land) continue;
     stops.push({
       idx:      i,
       code:     gvs('apt-' + i) || String.fromCharCode(65 + i),
       price:    price,
       fee:      gv('fee-' + i),
       waiver:   gv('waiver-' + i),
-      burn:     gv('burn-' + i),
-      land:     gv('land-' + i),
+      burn:     burn,
+      land:     land,
       ete:      gv('ete-' + i),
       maxExtra: gv('maxextra-' + i)
     });
