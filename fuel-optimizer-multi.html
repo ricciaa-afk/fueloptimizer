@@ -461,7 +461,7 @@ function evalTrip(stops, departures, fob) {
     var buyLbs = Math.max(0, dep - preFuel);
     // Snap trivially small purchases to zero when no fee/waiver is at stake --
     // these are floating point rounding artifacts, not real required purchases
-    if (buyLbs < galToLbs(10) && s.fee === 0) { buyLbs = 0; dep = preFuel; }
+    if (buyLbs < galToLbs(2) && s.fee === 0) { buyLbs = 0; dep = preFuel; }
     var buyGal = lbsToGal(buyLbs);
     var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver - 0.01) ? s.fee : 0;
     var cost = buyGal * s.price + fee;
@@ -641,7 +641,7 @@ function buildOptimized(stops, fob) {
       if (dep > maxDep + galToLbs(s.waiver > 0 ? s.waiver : 0) + 10) continue;
 
       var buyLbs = Math.max(0, dep - preFuel);
-      if (buyLbs < galToLbs(10) && s.fee === 0) { buyLbs = 0; dep = preFuel; }
+      if (buyLbs < galToLbs(2) && s.fee === 0) { buyLbs = 0; dep = preFuel; }
       var buyGal = lbsToGal(buyLbs);
       var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver - 0.01) ? s.fee : 0;
       var cost = buyGal * s.price + fee;
