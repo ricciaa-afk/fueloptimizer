@@ -410,6 +410,7 @@ window.onload = function() {
 };
 
 window.onerror = function(msg, src, line) {
+  if (!line || line === 0) return false; // ignore iOS share sheet / cross-origin noise
   var el = document.getElementById('alert-box');
   if (el) { el.textContent = 'JS Error: ' + msg + ' (line ' + line + ')'; el.style.display = 'block'; }
   return false;
@@ -458,6 +459,9 @@ function evalTrip(stops, departures, fob) {
     if (dep < baselineDep - 5) return null;
     if (dep < baselineDep) dep = Math.max(dep, baselineDep);
     var buyLbs = Math.max(0, dep - preFuel);
+    // Snap trivially small purchases to zero when no fee/waiver is at stake --
+    // these are floating point rounding artifacts, not real required purchases
+    if (buyLbs < galToLbs(10) && s.fee === 0) { buyLbs = 0; dep = preFuel; }
     var buyGal = lbsToGal(buyLbs);
     var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver - 0.01) ? s.fee : 0;
     var cost = buyGal * s.price + fee;
@@ -637,6 +641,7 @@ function buildOptimized(stops, fob) {
       if (dep > maxDep + galToLbs(s.waiver > 0 ? s.waiver : 0) + 10) continue;
 
       var buyLbs = Math.max(0, dep - preFuel);
+      if (buyLbs < galToLbs(10) && s.fee === 0) { buyLbs = 0; dep = preFuel; }
       var buyGal = lbsToGal(buyLbs);
       var fee = (s.waiver > 0 && s.fee > 0 && buyGal < s.waiver - 0.01) ? s.fee : 0;
       var cost = buyGal * s.price + fee;
