@@ -456,6 +456,9 @@ function evalTrip(stops, departures, fob) {
     var s = stops[i];
     var dep = Math.max(departures[i], preFuel);
     var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
+    var maxDepET = baselineDep + (s.burn > 0 ? s.maxExtra : 0);
+    // Cap total departure at max fuel load limit
+    if (s.maxExtra > 0 && dep > maxDepET) dep = maxDepET;
     if (dep < baselineDep - 5) return null;
     if (dep < baselineDep) dep = Math.max(dep, baselineDep);
     var buyLbs = Math.max(0, dep - preFuel);
@@ -638,7 +641,10 @@ function buildOptimized(stops, fob) {
     for (var ci = 0; ci < candList.length; ci++) {
       var dep = Math.max(candList[ci], preFuel);
       if (dep < baselineDep - 5) continue;
-      if (dep > maxDep + galToLbs(s.waiver > 0 ? s.waiver : 0) + 10) continue;
+      // Cap total departure at maxDep -- this enforces the absolute fuel load limit
+      // regardless of how much pre-fuel was carried in from the previous stop
+      if (dep > maxDep) dep = maxDep;
+      if (dep < baselineDep) continue; // after capping, must still meet leg minimum
 
       var buyLbs = Math.max(0, dep - preFuel);
       if (buyLbs < galToLbs(2) && s.fee === 0) { buyLbs = 0; dep = preFuel; }
