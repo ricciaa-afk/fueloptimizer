@@ -173,7 +173,7 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
     <div class="field"><label>Burn to B <span class="u">lbs</span></label><input type="number" id="burn-0" step="10"></div>
     <div class="field"><label>Land at B with <span class="u">lbs</span></label><input type="number" id="land-0" step="10"></div>
     <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-0" step="0.1"></div>
-    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-0" step="100"><div class="hint">Above baseline load</div></div>
+    <div class="field"><label>Max Dep Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-0" step="100"><div class="hint">Max total fuel departing this stop</div></div>
   </div>
 </div>
 
@@ -191,7 +191,7 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
     <div class="field"><label>Burn to C <span class="u">lbs</span></label><input type="number" id="burn-1" step="10"></div>
     <div class="field"><label>Land at C with <span class="u">lbs</span></label><input type="number" id="land-1" step="10"></div>
     <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-1" step="0.1"></div>
-    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-1" step="100"></div>
+    <div class="field"><label>Max Dep Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-1" step="100"><div class="hint">Max total fuel departing this stop</div></div>
   </div>
 </div>
 
@@ -209,7 +209,7 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
     <div class="field"><label>Burn to D <span class="u">lbs</span></label><input type="number" id="burn-2" step="10"></div>
     <div class="field"><label>Land at D with <span class="u">lbs</span></label><input type="number" id="land-2" step="10"></div>
     <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-2" step="0.1"></div>
-    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-2" step="100"></div>
+    <div class="field"><label>Max Dep Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-2" step="100"><div class="hint">Max total fuel departing this stop</div></div>
   </div>
 </div>
 
@@ -227,7 +227,7 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
     <div class="field"><label>Burn to E <span class="u">lbs</span></label><input type="number" id="burn-3" step="10"></div>
     <div class="field"><label>Land at E with <span class="u">lbs</span></label><input type="number" id="land-3" step="10"></div>
     <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-3" step="0.1"></div>
-    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-3" step="100"></div>
+    <div class="field"><label>Max Dep Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-3" step="100"><div class="hint">Max total fuel departing this stop</div></div>
   </div>
 </div>
 
@@ -245,7 +245,7 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
     <div class="field"><label>Burn to F <span class="u">lbs</span></label><input type="number" id="burn-4" step="10"></div>
     <div class="field"><label>Land at F with <span class="u">lbs</span></label><input type="number" id="land-4" step="10"></div>
     <div class="field"><label>ETE <span class="u">hrs</span></label><input type="number" id="ete-4" step="0.1"></div>
-    <div class="field"><label>Max Extra Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-4" step="100"></div>
+    <div class="field"><label>Max Dep Fuel <span class="u">lbs</span></label><input type="number" id="maxextra-4" step="100"><div class="hint">Max total fuel departing this stop</div></div>
   </div>
 </div>
 
@@ -375,13 +375,13 @@ function saveInputs() {
       var el = document.getElementById(SAVE_IDS[i]);
       if (el) data[SAVE_IDS[i]] = el.value;
     }
-    localStorage.setItem('fuelopt_multi', JSON.stringify(data));
+    localStorage.setItem('fuelopt_multi_v2', JSON.stringify(data));
   } catch(e) {}
 }
 
 function restoreInputs() {
   try {
-    var raw = localStorage.getItem('fuelopt_multi');
+    var raw = localStorage.getItem('fuelopt_multi_v2');
     if (!raw) return;
     var data = JSON.parse(raw);
     for (var i = 0; i < SAVE_IDS.length; i++) {
@@ -392,7 +392,7 @@ function restoreInputs() {
 }
 
 function clearInputs() {
-  try { localStorage.removeItem('fuelopt_multi'); } catch(e) {}
+  try { localStorage.removeItem('fuelopt_multi_v2'); } catch(e) {}
   for (var i = 0; i < SAVE_IDS.length; i++) {
     var el = document.getElementById(SAVE_IDS[i]);
     if (el) el.value = '';
@@ -456,7 +456,7 @@ function evalTrip(stops, departures, fob) {
     var s = stops[i];
     var dep = Math.max(departures[i], preFuel);
     var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
-    var maxDepET = baselineDep + (s.burn > 0 ? s.maxExtra : 0);
+    var maxDepET = s.maxExtra > 0 ? s.maxExtra : 999999;
     // Cap total departure at max fuel load limit
     if (s.maxExtra > 0 && dep > maxDepET) dep = maxDepET;
     if (dep < baselineDep - 5) return null;
@@ -580,7 +580,7 @@ function buildOptimized(stops, fob) {
 
     var s = stops[idx];
     var baselineDep = (s.burn > 0) ? (s.burn + s.land) : s.land;
-    var maxDep = baselineDep + (s.burn > 0 ? s.maxExtra : 0);
+    var maxDep = s.maxExtra > 0 ? s.maxExtra : baselineDep + 15000;
 
     // Build candidate list -- use exact values, no rounding on waiver threshold
     var candList = [];
@@ -707,6 +707,11 @@ function runOptimize() {
   for (var i = 0; i < stops.length - 1; i++) {
     if (!stops[i].burn || !stops[i].land) {
       alertEl.textContent = '! Stop ' + stops[i].code + ': enter burn and landing fuel for leg to next stop.';
+      alertEl.style.display = 'block';
+      return;
+    }
+    if (stops[i].maxExtra > 0 && stops[i].maxExtra < stops[i].burn + stops[i].land) {
+      alertEl.textContent = '! Stop ' + stops[i].code + ': Max Dep Fuel (' + stops[i].maxExtra + ' lbs) is less than minimum needed for the leg (' + (stops[i].burn + stops[i].land) + ' lbs). Increase it or leave blank for no limit.';
       alertEl.style.display = 'block';
       return;
     }
@@ -1029,7 +1034,7 @@ function copyResults() {
     var code = gvs('apt-' + i) || String.fromCharCode(65 + i);
     lines.push(code + ' Price: $' + price + '/gal  Fee: $' + gv('fee-' + i) + '  Waiver: ' + gv('waiver-' + i) + ' gal');
     var burn = gv('burn-' + i);
-    if (burn) lines.push('  Leg burn: ' + burn + ' lbs  Land: ' + gv('land-' + i) + ' lbs  ETE: ' + gv('ete-' + i) + ' hrs  MaxExtra: ' + gv('maxextra-' + i) + ' lbs');
+    if (burn) lines.push('  Leg burn: ' + burn + ' lbs  Land: ' + gv('land-' + i) + ' lbs  ETE: ' + gv('ete-' + i) + ' hrs  Max Dep Fuel: ' + gv('maxextra-' + i) + ' lbs');
   }
   lines.push('');
   lines.push('--- SUMMARY ---');
