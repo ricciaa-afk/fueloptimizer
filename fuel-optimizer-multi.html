@@ -77,10 +77,10 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
 .strat-moves { display: flex; flex-direction: column; gap: 5px; }
 .strat-move { font-size: 13px; color: var(--text); line-height: 1.5; display: flex; gap: 8px; align-items: baseline; }
 .badge { font-size: 9px; font-weight: 600; padding: 2px 7px; border-radius: 4px; flex-shrink: 0; letter-spacing: 0.5px; }
-.badge.tanker { background: var(--blue-lt); color: var(--blue); }
-.badge.waiver { background: var(--green-lt); color: var(--green); }
+.badge.tanker { background: #fef08a; color: var(--green); font-weight: 700; }
+.badge.waiver { background: #fef08a; color: var(--green); font-weight: 700; }
 .badge.fee { background: var(--red-lt); color: var(--red); }
-.badge.min { background: var(--surface2); color: var(--muted); }
+.badge.min { background: var(--blue-lt); color: var(--blue); }
 .cmp-wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
 @media (max-width: 640px) { .cmp-wrap { grid-template-columns: 1fr; } }
 .cmp-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); }
@@ -112,17 +112,18 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
 .tri-table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: var(--shadow); margin-bottom: 12px; font-size: 11px; }
 .tri-table th { padding: 8px 10px; font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; border-bottom: 2px solid var(--border); text-align: right; font-weight: 700; }
 .tri-table th:first-child { text-align: left; width: 30%; color: var(--muted); font-weight: 400; }
-.tri-table th.col-min  { background: var(--surface2); color: var(--muted); }
-.tri-table th.col-smart { background: var(--amber-lt); color: var(--amber); }
-.tri-table th.col-opt  { background: var(--blue-lt);  color: var(--blue); }
+.tri-table th.col-min  { background: var(--blue-lt); color: var(--blue); }
+.tri-table th.col-smart { background: var(--blue-lt); color: var(--blue); }
+.tri-table th.col-opt  { background: #fef08a; color: var(--green); font-weight: 800; }
 .tri-table td { padding: 5px 10px; border-bottom: 1px solid #f0f2f5; text-align: right; vertical-align: baseline; }
+.tri-table td.col-opt  { background: #fefce8; }
 .tri-table td:first-child { text-align: left; color: var(--muted); font-size: 10px; }
 .tri-table tr:last-child td { border-bottom: none; }
 .tri-table .stop-row td { background: var(--surface2); font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 600; padding: 5px 10px; border-top: 1px solid var(--border); }
 .tri-table .total-row td { font-weight: 700; font-size: 13px; border-top: 2px solid var(--border); padding: 10px 10px; }
-.tri-table .total-row td.col-min  { background: var(--surface2); }
-.tri-table .total-row td.col-smart { background: var(--amber-lt); color: var(--amber); }
-.tri-table .total-row td.col-opt  { background: var(--blue-lt);  color: var(--blue); }
+.tri-table .total-row td.col-min  { background: var(--blue-lt); color: var(--blue); }
+.tri-table .total-row td.col-smart { background: var(--blue-lt); color: var(--blue); }
+.tri-table .total-row td.col-opt  { background: #fef08a; color: var(--green); font-weight: 800; }
 .td-green { color: var(--green); font-weight: 600; }
 .td-red   { color: var(--red); }
 .td-blue  { color: var(--blue); font-weight: 600; }
@@ -273,8 +274,8 @@ input[type="number"]:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rg
         <div class="sb-note" id="r-savings-note">-</div>
       </div>
       <div class="sb-stats">
-        <div><div class="ss-label">Baseline Total</div><div class="ss-val" id="r-base-tot">-</div></div>
-        <div><div class="ss-label">Optimized Total</div><div class="ss-val green" id="r-opt-tot">-</div></div>
+        <div><div class="ss-label">Baseline Total</div><div class="ss-val" style="color:var(--blue)" id="r-base-tot">-</div></div>
+        <div><div class="ss-label">Optimized Total</div><div class="ss-val" style="color:var(--green);font-weight:800" id="r-opt-tot">-</div></div>
       </div>
     </div>
     <div class="strategy-box">
@@ -824,9 +825,9 @@ function showResults(base, smart, opt, stops) {
   var summaryEl = document.getElementById('tri-summary');
   var savVsMin = baseCost - optCost;
   summaryEl.innerHTML =
-    '<strong>Min Buy:</strong> $' + Math.round(baseCost).toLocaleString() +
-    ' &nbsp;|&nbsp; <strong>Waive Fees:</strong> $' + Math.round(smartCost).toLocaleString() +
-    ' &nbsp;|&nbsp; <strong>Optimized:</strong> $' + Math.round(optCost).toLocaleString() +
+    '<span style="color:var(--blue)"><strong>Min Buy:</strong> $' + Math.round(baseCost).toLocaleString() + '</span>' +
+    ' &nbsp;|&nbsp; <span style="color:var(--blue)"><strong>Waive Fees:</strong> $' + Math.round(smartCost).toLocaleString() + '</span>' +
+    ' &nbsp;|&nbsp; <span style="background:#fef08a;color:var(--green);font-weight:800;padding:1px 6px;border-radius:3px"><strong>Optimized: $' + Math.round(optCost).toLocaleString() + '</strong></span>' +
     ' &nbsp;&nbsp; <span class="sav-highlight">Savings vs Min Buy: $' + Math.round(savVsMin).toLocaleString() + '</span>';
 
   // Set up landing fuel section (Change 2)
