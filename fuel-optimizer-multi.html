@@ -760,14 +760,17 @@ function showResults(base, smart, opt, stops) {
     var os = opt[i];
     var bs = base[i];
     var st = stops[i];
-    // A stop is the "final destination" if it has no burn data -- it's just a fueling stop at journey's end
     var isFinalDest = (st.burn === 0);
     var isLast = (i === opt.length - 1);
     var badge, text;
     var waiverGal = st.waiver;
     var aboveWaiver = waiverGal > 0 && os.buyGal > waiverGal + 10;
     var atWaiver    = waiverGal > 0 && os.fee === 0 && Math.abs(os.buyGal - waiverGal) <= 10;
-    var isTankering = os.buyGal > bs.buyGal + 20 && !isFinalDest && !isLast && (aboveWaiver || bs.fee === 0);
+    // True extra = opt purchase above the minimum the opt plan itself needs at this stop
+    // (not vs baseline, which arrives with different pre-fuel)
+    var optMinNeeded = Math.max(0, lbsToGal((st.burn > 0 ? st.burn + st.land : st.land) - os.preFuel));
+    var trueExtra = Math.round(os.buyGal - optMinNeeded);
+    var isTankering = trueExtra > 20 && !isFinalDest && !isLast && (aboveWaiver || os.fee === 0);
 
     if (isFinalDest) {
       // Final destination -- just describe what's being bought, no tanker/waiver/fee framing
@@ -783,9 +786,8 @@ function showResults(base, smart, opt, stops) {
       }
     } else if (atWaiver) {
       badge = 'waiver';
-      var extraForWaiver = Math.round(os.buyGal - bs.buyGal);
       if (bs.fee > 0) {
-        text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (+' + extraForWaiver + ' extra to waive $' + Math.round(stops[i].fee).toLocaleString() + ' fee)';
+        text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (+' + trueExtra + ' extra to waive $' + Math.round(stops[i].fee).toLocaleString() + ' fee)';
       } else {
         text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (at waiver threshold -- fee waived)';
       }
@@ -797,7 +799,7 @@ function showResults(base, smart, opt, stops) {
       text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal -- pay $' + Math.round(os.fee).toLocaleString() + ' fee';
     } else if (isTankering) {
       badge = 'tanker';
-      text = os.code + ': Tanker ' + Math.round(os.buyGal - bs.buyGal) + ' extra gal ($' + os.price.toFixed(2) + '/gal)';
+      text = os.code + ': Tanker ' + trueExtra + ' extra gal ($' + os.price.toFixed(2) + '/gal)';
     } else {
       badge = 'min';
       text = os.code + ': Buy ' + Math.round(os.buyGal) + ' gal (minimum needed)';
